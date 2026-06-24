@@ -12,9 +12,9 @@ const bien = {
 
 test('computes weighted surface, VLC and clamps relief to >= 0', () => {
   const r = computeDegrevement(bien, DEFAULT_BAREME)
-  expect(r.surfacePonderee).toBeGreaterThan(0)
-  expect(r.vlcRecalculee).toBeGreaterThan(0)
-  expect(r.degrevementEstime).toBeGreaterThanOrEqual(0)
+  expect(r.surfacePonderee).toBeCloseTo(65)
+  expect(r.vlcRecalculee).toBeCloseTo(390)
+  expect(r.degrevementEstime).toBeCloseTo(152.5)
 })
 
 test('parking weighting (0.6) yields smaller weighted surface than housing', () => {
