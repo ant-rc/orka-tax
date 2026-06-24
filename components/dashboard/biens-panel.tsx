@@ -69,10 +69,14 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
 
   const handleResetFilters = useCallback(() => setFilters([]), []);
 
-  const handleAddFilter = useCallback(() => {
-    setFilters((prev) => [...prev, `Filtre ${prev.length + 1} (${crypto.randomUUID().slice(0, 4)})`]);
-    toast('Filtre ajouté');
-  }, [toast]);
+  const handleAddFilter = useCallback((value: string) => {
+    if (filters.includes(value)) {
+      toast('Ce filtre existe déjà', 'error');
+      return;
+    }
+    setFilters((prev) => [...prev, value]);
+    toast('Filtre ajouté', 'success');
+  }, [filters, toast]);
 
   const handleDelete = useCallback((id: string) => {
     setBiens((prev) => prev.filter((b) => b.id !== id));

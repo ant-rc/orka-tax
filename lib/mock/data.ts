@@ -25,13 +25,13 @@ export interface DeclarationRow {
 
 export const MOCK_LOTS: Lot[] = [
   { id: '1', name: '94077-VOLTA', address: '12 RUE BIS SAINT…', city: 'VILLENEUVE LE ROI', status: 'en_attente' },
-  { id: '2', name: '13000-PARNASSE', address: 'Le Palladium', city: 'Paris - 75002', status: 'en_attente' },
-  { id: '3', name: 'Mar 11, 15:30', address: 'Le Palladium', city: 'Paris - 75002', status: 'en_attente' },
-  { id: '4', name: 'Mar 11, 10:10', address: 'Le Palladium', city: 'Paris - 75002', status: 'en_attente' },
-  { id: '5', name: 'Mar 11, 15:30', address: 'Le Palladium', city: 'Paris - 75002', status: 'en_attente' },
-  { id: '6', name: 'Mar 11, 15:30', address: 'Le Palladium', city: 'Paris - 75002', status: 'en_attente' },
-  { id: '7', name: 'Mar 11, 15:30', address: 'Le Palladium', city: 'Paris - 75002', status: 'en_attente' },
-  { id: '8', name: 'Mar 11, 15:30', address: 'Le Palladium', city: 'Paris - 75002', status: 'en_attente' },
+  { id: '2', name: '75011-OBERKAMPF', address: '34 rue Oberkampf', city: 'Paris - 75011', status: 'en_attente' },
+  { id: '3', name: '69003-PART-DIEU', address: '8 cours Lafayette', city: 'Lyon - 69003', status: 'en_attente' },
+  { id: '4', name: '92100-BOULOGNE', address: '15 avenue Jean-Baptiste Clément', city: 'Boulogne-Billancourt - 92100', status: 'en_attente' },
+  { id: '5', name: '13006-PRADO', address: '120 avenue du Prado', city: 'Marseille - 13006', status: 'en_attente' },
+  { id: '6', name: '33000-CHARTRONS', address: '47 cours du Médoc', city: 'Bordeaux - 33000', status: 'en_attente' },
+  { id: '7', name: '59000-VAUBAN', address: '22 boulevard Vauban', city: 'Lille - 59000', status: 'en_attente' },
+  { id: '8', name: '06000-CARRÉ-DOR', address: '5 rue de la Liberté', city: 'Nice - 06000', status: 'en_attente' },
 ];
 
 export const MOCK_DECLARATION_ROWS: DeclarationRow[] = [
