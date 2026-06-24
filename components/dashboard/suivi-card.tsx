@@ -1,7 +1,12 @@
+'use client';
+
 import { FileStack, Eye, Download } from 'lucide-react';
 import { MOCK_SUIVI } from '@/lib/mock/data';
+import { useToast } from '@/components/ui/toast';
 
 export default function SuiviCard() {
+  const toast = useToast();
+
   return (
     <div className="bg-white rounded-lg border border-ui-border">
       <div className="p-5 pb-3 flex items-center gap-3">
@@ -24,11 +29,19 @@ export default function SuiviCard() {
               </div>
               <div className="flex items-center gap-2">
                 {item.hasDownload && (
-                  <button className="text-ui-text-muted hover:text-ui-text transition-colors">
+                  <button
+                    onClick={() => toast('Téléchargement du document')}
+                    className="text-ui-text-muted hover:text-ui-text transition-colors"
+                    aria-label="Télécharger le document"
+                  >
                     <Download size={16} />
                   </button>
                 )}
-                <button className="text-ui-text-muted hover:text-ui-text transition-colors">
+                <button
+                  onClick={() => toast('Aperçu du document')}
+                  className="text-ui-text-muted hover:text-ui-text transition-colors"
+                  aria-label="Aperçu du document"
+                >
                   <Eye size={16} />
                 </button>
               </div>

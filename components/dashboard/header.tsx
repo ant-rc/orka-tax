@@ -1,6 +1,11 @@
+'use client';
+
 import { Rocket } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
 
 export default function Header() {
+  const toast = useToast();
+
   return (
     <header className="h-[72px] bg-white border-b border-ui-border px-8 flex items-center justify-between shrink-0">
       <div className="flex items-center gap-3">
@@ -9,7 +14,11 @@ export default function Header() {
           Vérification gratuite
         </span>
       </div>
-      <button className="border border-vert-900 text-vert-900 rounded-md px-3 py-2 text-sm flex items-center gap-1.5 hover:bg-vert-900/5 transition-colors">
+      <button
+        onClick={() => toast('Fonctionnalité bientôt disponible')}
+        className="border border-vert-900 text-vert-900 rounded-md px-3 py-2 text-sm flex items-center gap-1.5 hover:bg-vert-900/5 transition-colors"
+        aria-label="Obtenir des crédits"
+      >
         <Rocket size={18} />
         Obtenir des crédits
       </button>
