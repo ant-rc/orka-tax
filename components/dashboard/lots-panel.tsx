@@ -66,10 +66,9 @@ export default function LotsPanel() {
   const handleResetFilters = useCallback(() => setFilters([]), []);
 
   const handleAddFilter = useCallback(() => {
-    const n = filters.length + 1;
-    setFilters((prev) => [...prev, `Filtre ${n}`]);
+    setFilters((prev) => [...prev, `Filtre ${prev.length + 1} (${crypto.randomUUID().slice(0, 4)})`]);
     toast('Filtre ajouté');
-  }, [filters.length, toast]);
+  }, [toast]);
 
   const handleCreate = useCallback(() => {
     if (!newName.trim()) return;
