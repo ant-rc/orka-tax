@@ -2,18 +2,31 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient, DEMO_ORG_ID } from '@/lib/supabase/client';
 
 export default function IdentificationPage() {
   const router = useRouter();
 
   const [companyId, setCompanyId] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const canSubmit = companyId.trim() !== '' && companyName.trim() !== '';
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!canSubmit) return;
+    if (!canSubmit || submitting) return;
+    setSubmitting(true);
+    const name = companyName.trim();
+    const id = companyId.trim();
+    // Persist the company identity onto the demo organization (single-tenant demo).
+    try {
+      const supabase = createClient();
+      await supabase.from('organizations').update({ name, company_id: id }).eq('id', DEMO_ORG_ID);
+    } catch {
+      // Demo: ignore write errors and continue to the dashboard.
+    }
+    localStorage.setItem('orka_org', JSON.stringify({ id: DEMO_ORG_ID, name, companyId: id }));
     router.push('/dashboard');
   }
 
@@ -71,10 +84,10 @@ export default function IdentificationPage() {
 
           <button
             type="submit"
-            disabled={!canSubmit}
+            disabled={!canSubmit || submitting}
             className="mt-2 bg-vert-400 text-cyprus-900 rounded-md px-4 py-2.5 text-sm font-semibold hover:bg-vert-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Accéder à mon espace
+            {submitting ? 'Connexion…' : 'Accéder à mon espace'}
           </button>
         </form>
       </div>
