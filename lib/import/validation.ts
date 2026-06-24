@@ -14,7 +14,7 @@ export interface RowError {
 const byKey = new Map(CANONICAL_FIELDS.map((f) => [f.key, f]))
 
 export function validateRows(
-  rows: Record<string, string>[],
+  rows: Record<string, unknown>[],
   mapping: MappingProposal[],
 ): { valid: BienInput[]; errors: RowError[] } {
   const valid: BienInput[] = []
@@ -31,7 +31,7 @@ export function validateRows(
         const field = byKey.get(proposal.suggestedField)
         if (!field) continue
 
-        const raw: string = row[proposal.sourceColumn] ?? ''
+        const raw = String(row[proposal.sourceColumn] ?? '')
 
         if (field.type === 'number' || field.type === 'int') {
           const n = coerceNumber(raw)

@@ -23,3 +23,13 @@ test('coerces FR decimal and Oui/Non; flags missing required and bad type', () =
   expect(errors).toContainEqual(expect.objectContaining({ rowIndex: 1, column: 'surface_m2', code: 'type' }))
   expect(errors).toContainEqual(expect.objectContaining({ rowIndex: 2, column: 'ville', code: 'required' }))
 })
+
+test('handles numeric cell value without throwing', () => {
+  const rowWithNumericCell: Record<string, unknown> = { ...base, Surf: 45 }
+  const { valid, errors } = validateRows([rowWithNumericCell], mapping)
+  expect(valid[0].surface_m2).toBe(45)
+  const typeErrors = errors.filter((e) => e.code === 'type')
+  const sentinelErrors = errors.filter((e) => e.column === '__row__')
+  expect(typeErrors).toHaveLength(0)
+  expect(sentinelErrors).toHaveLength(0)
+})
