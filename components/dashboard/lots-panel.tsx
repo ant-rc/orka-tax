@@ -1,59 +1,14 @@
-import { Search, Download, Plus, ArrowDownUp, Folder, ChevronRight, ChevronDown, X } from 'lucide-react';
-import { MOCK_LOTS, MOCK_FILTERS, MOCK_COUNTS } from '@/lib/mock/data';
+import Link from 'next/link';
+import { ArrowDownUp, Folder, ChevronRight, ChevronDown } from 'lucide-react';
+import { MOCK_LOTS } from '@/lib/mock/data';
+import PanelToolbar from '@/components/dashboard/panel-toolbar';
+import FilterChips from '@/components/dashboard/filter-chips';
 
 export default function LotsPanel() {
   return (
     <div className="bg-white rounded-lg border border-ui-border shadow-sm overflow-hidden flex flex-col">
-      {/* Toolbar */}
-      <div className="p-5 flex items-center justify-between gap-4 flex-wrap border-b border-ui-border">
-        <div className="flex items-center gap-3">
-          <span className="text-lg font-semibold text-ui-text-highlighted">Configurations de vos biens</span>
-          <span className="bg-vert-200 text-vert-900 rounded-md px-2 py-0.5 text-sm font-medium">
-            {MOCK_COUNTS.configured} /{MOCK_COUNTS.total}
-          </span>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ui-text-dimmed" />
-            <input
-              type="text"
-              placeholder="Chercher"
-              className="border border-ui-border rounded-md pl-8 pr-3 py-2 text-sm w-60 text-ui-text placeholder:text-ui-text-dimmed focus:outline-none focus:border-ui-border-accented"
-            />
-          </div>
-          <button className="border border-ui-border rounded-md px-3 py-2 text-sm flex items-center gap-1.5 text-ui-text hover:bg-ui-bg-elevated transition-colors">
-            <Download size={14} />
-            Importer
-          </button>
-          <button className="bg-vert-400 text-vert-900 rounded-md px-3 py-2 text-sm font-medium flex items-center gap-1.5 hover:bg-vert-300 transition-colors">
-            <Plus size={14} />
-            Créer un lot
-          </button>
-        </div>
-      </div>
-
-      {/* Filter chips */}
-      <div className="px-5 py-3 flex items-center gap-2 flex-wrap text-sm border-b border-ui-border">
-        {MOCK_FILTERS.map((filter) => (
-          <span
-            key={filter}
-            className="bg-ui-bg-elevated border border-ui-border rounded-md px-2 py-1 text-xs flex items-center gap-1 text-ui-text"
-          >
-            {filter}
-            <button className="text-ui-text-muted hover:text-ui-text transition-colors">
-              <X size={12} />
-            </button>
-          </span>
-        ))}
-        <button className="text-ui-text-muted flex items-center gap-1 text-xs hover:text-ui-text transition-colors">
-          <Plus size={12} />
-          ajouter un filtre
-        </button>
-        <span className="text-ui-border mx-1">|</span>
-        <button className="underline text-ui-text-muted text-xs hover:text-ui-text transition-colors">
-          Réinitialiser
-        </button>
-      </div>
+      <PanelToolbar primaryLabel="Créer un lot" />
+      <FilterChips />
 
       {/* Table */}
       <div className="flex-1 overflow-auto">
@@ -61,7 +16,7 @@ export default function LotsPanel() {
           <thead>
             <tr className="bg-cyprus-900 text-white text-sm">
               <th className="px-4 py-3 w-10">
-                <input type="checkbox" className="rounded" />
+                <input type="checkbox" className="rounded" aria-label="Tout sélectionner" />
               </th>
               <th className="text-left px-4 py-3 font-medium">
                 <span className="flex items-center gap-1">
@@ -86,7 +41,7 @@ export default function LotsPanel() {
             {MOCK_LOTS.map((lot) => (
               <tr key={lot.id} className="border-b border-ui-border text-sm hover:bg-ui-bg-elevated/50 transition-colors">
                 <td className="px-4 py-3">
-                  <input type="checkbox" className="rounded" />
+                  <input type="checkbox" className="rounded" aria-label={`Sélectionner ${lot.name}`} />
                 </td>
                 <td className="px-4 py-3">
                   <span className="flex items-center gap-2">
@@ -102,9 +57,13 @@ export default function LotsPanel() {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <button className="bg-vert-400 text-cyprus-900 rounded-md size-7 flex items-center justify-center hover:bg-vert-300 transition-colors">
+                  <Link
+                    href={`/lots/${lot.id}`}
+                    className="bg-vert-400 text-cyprus-900 rounded-md size-7 flex items-center justify-center hover:bg-vert-300 transition-colors"
+                    aria-label={`Ouvrir le lot ${lot.name}`}
+                  >
                     <ChevronRight size={16} />
-                  </button>
+                  </Link>
                 </td>
               </tr>
             ))}

@@ -55,3 +55,41 @@ export const MOCK_ESTIMATION = '879 €';
 export const MOCK_FILTERS = ['Nuxt', 'Vue', 'Vite'];
 export const MOCK_COUNTS = { configured: 10, total: 150 };
 export const MOCK_LAST_MODIFIED = '09/12/2026';
+
+// --- Biens (properties inside a lot) ---
+
+export type BienType = 'Appartement' | 'Parking';
+
+// The qualification tunnel from the cadrage:
+// importé → rapprochement en cours → résolu → en analyse →
+// anomalie détectée → réclamation → remboursement obtenu
+export type BienStatut =
+  | 'importe'
+  | 'rapprochement'
+  | 'resolu'
+  | 'analyse'
+  | 'anomalie'
+  | 'reclamation'
+  | 'remboursement';
+
+export interface Bien {
+  id: string;
+  type: BienType;
+  reference: string;
+  surface: string;
+  etage: string;
+  degrevement: LotStatus;
+  statut: BienStatut;
+}
+
+export const MOCK_BIENS: Bien[] = [
+  { id: '1', type: 'Appartement', reference: '940770660134', surface: '28m2', etage: '0', degrevement: 'en_attente', statut: 'importe' },
+  { id: '2', type: 'Parking', reference: '940770660147', surface: '12m2', etage: '0', degrevement: 'en_attente', statut: 'rapprochement' },
+  { id: '3', type: 'Appartement', reference: '940770660148', surface: '28m2', etage: '0', degrevement: 'en_attente', statut: 'resolu' },
+  { id: '4', type: 'Appartement', reference: '940770660149', surface: '28m2', etage: '0', degrevement: 'en_attente', statut: 'analyse' },
+  { id: '5', type: 'Appartement', reference: '940770660188', surface: '42m2', etage: '2', degrevement: 'en_attente', statut: 'anomalie' },
+  { id: '6', type: 'Appartement', reference: '940770660189', surface: '42m2', etage: '2', degrevement: 'en_attente', statut: 'reclamation' },
+  { id: '7', type: 'Appartement', reference: '940770660190', surface: '42m2', etage: '2', degrevement: 'en_attente', statut: 'remboursement' },
+  { id: '8', type: 'Appartement', reference: '940770660191', surface: '42m2', etage: '2', degrevement: 'en_attente', statut: 'resolu' },
+  { id: '9', type: 'Parking', reference: '940770660192', surface: '42m2', etage: '2', degrevement: 'en_attente', statut: 'resolu' },
+];

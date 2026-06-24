@@ -32,6 +32,12 @@
   --color-danger-text: #c10007;
   --color-folder: #d8b266;
 
+  /* Status colors (bien tunnel) */
+  --color-info: #2b7fff;
+  --color-success: #00c16a;
+  --color-warning: #efb100;
+  --color-error: #fb2c36;
+
   --radius-md: 6px;
   --radius-sm: 4px;
 }
