@@ -4,7 +4,6 @@
 -- ============================================================
 -- EXTENSIONS
 -- ============================================================
-create extension if not exists "uuid-ossp";
 
 -- ============================================================
 -- TABLE: organizations
@@ -60,12 +59,8 @@ create table public.memberships (
 alter table public.memberships enable row level security;
 
 create policy "members read/write own org" on public.memberships
-  for all using (
-    org_id in (select org_id from public.memberships where user_id = auth.uid())
-  )
-  with check (
-    org_id in (select org_id from public.memberships where user_id = auth.uid())
-  );
+  for all using (user_id = auth.uid())
+  with check (user_id = auth.uid());
 
 -- ============================================================
 -- TABLE: lots
