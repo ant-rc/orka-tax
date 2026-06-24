@@ -1,4 +1,4 @@
-import BiensPanel from '@/components/dashboard/biens-panel';
+import AnomaliesPanel from '@/components/dashboard/anomalies-panel';
 
 export default async function VosBiensPage({
   params,
@@ -8,7 +8,7 @@ export default async function VosBiensPage({
   const { lotId } = await params;
   return (
     <div className="p-6">
-      <BiensPanel lotId={lotId} />
+      <AnomaliesPanel lotId={lotId} />
     </div>
   );
 }

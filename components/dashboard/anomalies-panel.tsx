@@ -6,12 +6,13 @@ import { ArrowDownUp, ArrowUp, ArrowDown, ChevronDown, Trash2 } from 'lucide-rea
 import { MOCK_BIENS, BIEN_TYPES, BIEN_TYPE_ICON, type Bien, type BienType } from '@/lib/mock/data';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
-import PanelToolbar from '@/components/dashboard/panel-toolbar';
+import PanelToolbarAnomalies from '@/components/dashboard/panel-toolbar-anomalies';
 import FilterChips from '@/components/dashboard/filter-chips';
 import Pagination from '@/components/dashboard/pagination';
 import StatusBadge, { statutLabel } from '@/components/dashboard/status-badge';
 import Modal from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
+import DuplicatesCountAnomalies from './duplicates-count-anomalies';
 
 const BIEN_FIELDS: FieldDef[] = [
   { key: 'type',      label: 'Type' },
@@ -167,8 +168,9 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
   }, [toast]);
 
   return (
+    
     <div className="bg-white rounded-lg border border-ui-border shadow-sm overflow-hidden flex flex-col">
-      <PanelToolbar
+      <PanelToolbarAnomalies
         primaryLabel="Ajouter un bien"
         searchValue={search}
         onSearchChange={setSearch}
@@ -184,7 +186,7 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
         onRemove={handleRemoveFilter}
         onReset={handleResetFilters}
       />
-
+      <DuplicatesCountAnomalies/>
       {/* Table */}
       <div className="flex-1 overflow-auto">
         <table className="w-full">
