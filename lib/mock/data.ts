@@ -56,7 +56,15 @@ export const MOCK_LAST_MODIFIED = '09/12/2026';
 
 // --- Biens (properties inside a lot) ---
 
-export type BienType = 'Appartement' | 'Parking';
+export type BienType = 'Appartement' | 'Parking' | 'Cave';
+
+export const BIEN_TYPES: BienType[] = ['Appartement', 'Cave', 'Parking'];
+
+export const BIEN_TYPE_ICON: Record<BienType, string> = {
+  Appartement: '/assets/meuble.webp',
+  Parking: '/assets/parking.webp',
+  Cave: '/assets/cave.webp',
+};
 
 // The qualification tunnel from the cadrage:
 // importé → rapprochement en cours → résolu → en analyse →
@@ -90,4 +98,5 @@ export const MOCK_BIENS: Bien[] = [
   { id: '7', type: 'Appartement', reference: '940770660190', surface: '42m2', etage: '2', degrevement: 'en_attente', statut: 'remboursement' },
   { id: '8', type: 'Appartement', reference: '940770660191', surface: '42m2', etage: '2', degrevement: 'en_attente', statut: 'resolu' },
   { id: '9', type: 'Parking', reference: '940770660192', surface: '42m2', etage: '2', degrevement: 'en_attente', statut: 'resolu' },
+  { id: '10', type: 'Cave', reference: '940770660210', surface: '6m2', etage: '-1', degrevement: 'en_attente', statut: 'importe' },
 ];

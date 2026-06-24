@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowDownUp, ArrowUp, ArrowDown, ChevronDown, Trash2 } from 'lucide-react';
-import { MOCK_BIENS, type Bien, type BienType } from '@/lib/mock/data';
+import { MOCK_BIENS, BIEN_TYPES, BIEN_TYPE_ICON, type Bien, type BienType } from '@/lib/mock/data';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
 import PanelToolbar from '@/components/dashboard/panel-toolbar';
@@ -278,7 +278,10 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
                     />
                   </td>
                   <td className="px-4 py-3">
-                    <span className="block max-w-[140px] truncate text-cyprus-900 font-medium" title={bien.type}>{bien.type}</span>
+                    <span className="flex items-center gap-2">
+                      <img src={BIEN_TYPE_ICON[bien.type]} alt="" className="size-6 shrink-0" />
+                      <span className="block max-w-[140px] truncate text-cyprus-900 font-medium" title={bien.type}>{bien.type}</span>
+                    </span>
                   </td>
                   <td className="px-4 py-3">
                     <span className="block max-w-[160px] truncate text-ui-text-muted" title={bien.reference}>{bien.reference}</span>
@@ -368,16 +371,23 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
       >
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-ui-text-highlighted" htmlFor="bien-type">Type</label>
-            <select
-              id="bien-type"
-              value={newType}
-              onChange={(e) => setNewType(e.target.value as BienType)}
-              className="border border-ui-border rounded-md px-3 py-2 text-sm text-ui-text focus:outline-none focus:border-ui-border-accented"
-            >
-              <option value="Appartement">Appartement</option>
-              <option value="Parking">Parking</option>
-            </select>
+            <span className="text-sm font-medium text-ui-text-highlighted">Type</span>
+            <div className="grid grid-cols-3 gap-2">
+              {BIEN_TYPES.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setNewType(t)}
+                  className={`flex flex-col items-center gap-1.5 rounded-md border p-3 text-sm transition-colors ${
+                    newType === t ? 'border-vert-400 bg-vert-50 text-cyprus-900' : 'border-ui-border text-ui-text hover:bg-ui-bg-elevated'
+                  }`}
+                  aria-pressed={newType === t}
+                >
+                  <img src={BIEN_TYPE_ICON[t]} alt="" className="size-10" />
+                  {t}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-ui-text-highlighted" htmlFor="bien-ref">ID / Référence</label>

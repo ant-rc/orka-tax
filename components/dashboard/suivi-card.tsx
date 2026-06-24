@@ -1,6 +1,6 @@
 'use client';
 
-import { FileStack, Eye, Download } from 'lucide-react';
+import { Eye, Download } from 'lucide-react';
 import { MOCK_SUIVI } from '@/lib/mock/data';
 import { useToast } from '@/components/ui/toast';
 
@@ -10,9 +10,7 @@ export default function SuiviCard() {
   return (
     <div className="bg-white rounded-lg border border-ui-border">
       <div className="p-5 pb-3 flex items-center gap-3">
-        <span className="size-10 rounded-md bg-ui-bg-elevated flex items-center justify-center">
-          <FileStack size={20} className="text-ui-text-muted" />
-        </span>
+        <img src="/assets/doc.webp" alt="" className="size-10" />
         <h2 className="text-lg font-semibold text-ui-text-highlighted">Suivi et documents utiles</h2>
       </div>
       <div className="px-3 pb-3 max-h-[320px] overflow-y-auto scrollbar-thin flex flex-col gap-2">

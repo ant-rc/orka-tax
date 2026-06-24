@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { ArrowDownUp, ArrowUp, ArrowDown, Folder, ChevronRight, ChevronDown } from 'lucide-react';
+import { ArrowDownUp, ArrowUp, ArrowDown, ChevronRight, ChevronDown } from 'lucide-react';
 import { MOCK_LOTS, type Lot } from '@/lib/mock/data';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
@@ -241,7 +241,7 @@ export default function LotsPanel() {
                   </td>
                   <td className="px-4 py-3">
                     <span className="flex items-center gap-2">
-                      <Folder size={16} className="text-folder shrink-0" />
+                      <img src="/assets/lots.webp" alt="" className="size-6 shrink-0" />
                       <span className="block max-w-[160px] truncate text-ui-text-highlighted font-medium" title={lot.name}>{lot.name}</span>
                     </span>
                   </td>
