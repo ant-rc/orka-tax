@@ -52,7 +52,6 @@ export const MOCK_SUIVI: SuiviItem[] = [
 ];
 
 export const MOCK_ESTIMATION = '879 €';
-export const MOCK_FILTERS = ['Nuxt', 'Vue', 'Vite'];
 export const MOCK_COUNTS = { configured: 10, total: 150 };
 export const MOCK_LAST_MODIFIED = '09/12/2026';
 

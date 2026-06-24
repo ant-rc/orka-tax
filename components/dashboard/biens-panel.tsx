@@ -2,22 +2,39 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowDownUp, ChevronDown, Trash2 } from 'lucide-react';
-import { MOCK_BIENS, MOCK_FILTERS, type Bien, type BienType } from '@/lib/mock/data';
+import { ArrowDownUp, ArrowUp, ArrowDown, ChevronDown, Trash2 } from 'lucide-react';
+import { MOCK_BIENS, type Bien, type BienType } from '@/lib/mock/data';
+import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
+import { compareAlphaNum } from '@/lib/table/compare';
 import PanelToolbar from '@/components/dashboard/panel-toolbar';
 import FilterChips from '@/components/dashboard/filter-chips';
-import StatusBadge from '@/components/dashboard/status-badge';
+import StatusBadge, { statutLabel } from '@/components/dashboard/status-badge';
 import Modal from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 
-const COLUMNS = ['Vos biens', 'ID', 'Surfaces', 'Étage', 'Dégrèvement estimés', 'Statut'];
+const BIEN_FIELDS: FieldDef[] = [
+  { key: 'type',      label: 'Type' },
+  { key: 'reference', label: 'ID' },
+  { key: 'surface',   label: 'Surface' },
+  { key: 'etage',     label: 'Étage' },
+  { key: 'statut',    label: 'Statut' },
+];
+
+const BIEN_ACCESSORS: Record<string, (b: Bien) => string> = {
+  type:      (b) => b.type,
+  reference: (b) => b.reference,
+  surface:   (b) => b.surface,
+  etage:     (b) => b.etage,
+  statut:    (b) => statutLabel(b.statut),
+};
 
 export default function BiensPanel({ lotId }: { lotId: string }) {
   const toast = useToast();
   const router = useRouter();
 
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState<string[]>(MOCK_FILTERS);
+  const [filters, setFilters] = useState<ActiveFilter[]>([]);
+  const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pageSize, setPageSize] = useState(10);
   const [biens, setBiens] = useState<Bien[]>(MOCK_BIENS);
@@ -33,14 +50,28 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return biens.filter(
-      (b) =>
+    return biens.filter((b) => {
+      const matchSearch =
         b.type.toLowerCase().includes(q) ||
-        b.reference.toLowerCase().includes(q)
-    );
-  }, [biens, search]);
+        b.reference.toLowerCase().includes(q);
+      const matchFilters = filters.every((f) =>
+        (BIEN_ACCESSORS[f.field]?.(b) ?? '').toLowerCase().includes(f.value.toLowerCase())
+      );
+      return matchSearch && matchFilters;
+    });
+  }, [biens, search, filters]);
 
-  const visible = filtered.slice(0, pageSize);
+  const sorted = useMemo(() => {
+    if (!sort) return filtered;
+    const accessor = BIEN_ACCESSORS[sort.key];
+    if (!accessor) return filtered;
+    return [...filtered].sort((a, b) => {
+      const cmp = compareAlphaNum(accessor(a), accessor(b));
+      return sort.dir === 'asc' ? cmp : -cmp;
+    });
+  }, [filtered, sort]);
+
+  const visible = sorted.slice(0, pageSize);
   const allVisibleSelected = visible.length > 0 && visible.every((b) => selected.has(b.id));
 
   const toggleAll = useCallback(() => {
@@ -63,20 +94,34 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
     });
   }, []);
 
-  const handleRemoveFilter = useCallback((f: string) => {
-    setFilters((prev) => prev.filter((x) => x !== f));
+  const handleRemoveFilter = useCallback((id: string) => {
+    setFilters((prev) => prev.filter((f) => f.id !== id));
   }, []);
 
   const handleResetFilters = useCallback(() => setFilters([]), []);
 
-  const handleAddFilter = useCallback((value: string) => {
-    if (filters.includes(value)) {
+  const handleAddFilter = useCallback((field: FieldDef, value: string) => {
+    const isDuplicate = filters.some(
+      (f) => f.field === field.key && f.value.toLowerCase() === value.toLowerCase()
+    );
+    if (isDuplicate) {
       toast('Ce filtre existe déjà', 'error');
       return;
     }
-    setFilters((prev) => [...prev, value]);
+    setFilters((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), field: field.key, label: field.label, value },
+    ]);
     toast('Filtre ajouté', 'success');
   }, [filters, toast]);
+
+  const handleSort = useCallback((key: string) => {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: 'asc' };
+      if (prev.dir === 'asc') return { key, dir: 'desc' };
+      return null;
+    });
+  }, []);
 
   const handleDelete = useCallback((id: string) => {
     setBiens((prev) => prev.filter((b) => b.id !== id));
@@ -126,10 +171,11 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
         onImport={() => setImportOpen(true)}
       />
       <FilterChips
+        fields={BIEN_FIELDS}
         filters={filters}
+        onAdd={handleAddFilter}
         onRemove={handleRemoveFilter}
         onReset={handleResetFilters}
-        onAdd={handleAddFilter}
       />
 
       {/* Table */}
@@ -146,13 +192,67 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
                   onChange={toggleAll}
                 />
               </th>
-              {COLUMNS.map((col) => (
-                <th key={col} className="text-left px-4 py-3 font-medium whitespace-nowrap">
-                  <span className="flex items-center gap-1">
-                    {col} <ArrowDownUp size={14} className="text-white/60" />
-                  </span>
-                </th>
-              ))}
+              <th className="text-left px-4 py-3 font-medium whitespace-nowrap">
+                <button onClick={() => handleSort('type')} className="flex items-center gap-1 w-full">
+                  Vos biens
+                  {sort?.key === 'type' ? (
+                    sort.dir === 'asc'
+                      ? <ArrowUp size={14} className="text-vert-400" />
+                      : <ArrowDown size={14} className="text-vert-400" />
+                  ) : (
+                    <ArrowDownUp size={14} className="text-white/60" />
+                  )}
+                </button>
+              </th>
+              <th className="text-left px-4 py-3 font-medium whitespace-nowrap">
+                <button onClick={() => handleSort('reference')} className="flex items-center gap-1 w-full">
+                  ID
+                  {sort?.key === 'reference' ? (
+                    sort.dir === 'asc'
+                      ? <ArrowUp size={14} className="text-vert-400" />
+                      : <ArrowDown size={14} className="text-vert-400" />
+                  ) : (
+                    <ArrowDownUp size={14} className="text-white/60" />
+                  )}
+                </button>
+              </th>
+              <th className="text-left px-4 py-3 font-medium whitespace-nowrap">
+                <button onClick={() => handleSort('surface')} className="flex items-center gap-1 w-full">
+                  Surfaces
+                  {sort?.key === 'surface' ? (
+                    sort.dir === 'asc'
+                      ? <ArrowUp size={14} className="text-vert-400" />
+                      : <ArrowDown size={14} className="text-vert-400" />
+                  ) : (
+                    <ArrowDownUp size={14} className="text-white/60" />
+                  )}
+                </button>
+              </th>
+              <th className="text-left px-4 py-3 font-medium whitespace-nowrap">
+                <button onClick={() => handleSort('etage')} className="flex items-center gap-1 w-full">
+                  Étage
+                  {sort?.key === 'etage' ? (
+                    sort.dir === 'asc'
+                      ? <ArrowUp size={14} className="text-vert-400" />
+                      : <ArrowDown size={14} className="text-vert-400" />
+                  ) : (
+                    <ArrowDownUp size={14} className="text-white/60" />
+                  )}
+                </button>
+              </th>
+              <th className="text-left px-4 py-3 font-medium whitespace-nowrap">Dégrèvement estimés</th>
+              <th className="text-left px-4 py-3 font-medium whitespace-nowrap">
+                <button onClick={() => handleSort('statut')} className="flex items-center gap-1 w-full">
+                  Statut
+                  {sort?.key === 'statut' ? (
+                    sort.dir === 'asc'
+                      ? <ArrowUp size={14} className="text-vert-400" />
+                      : <ArrowDown size={14} className="text-vert-400" />
+                  ) : (
+                    <ArrowDownUp size={14} className="text-white/60" />
+                  )}
+                </button>
+              </th>
               <th className="px-4 py-3 w-24"></th>
             </tr>
           </thead>

@@ -2,18 +2,33 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { ArrowDownUp, Folder, ChevronRight, ChevronDown } from 'lucide-react';
-import { MOCK_LOTS, MOCK_FILTERS, type Lot } from '@/lib/mock/data';
+import { ArrowDownUp, ArrowUp, ArrowDown, Folder, ChevronRight, ChevronDown } from 'lucide-react';
+import { MOCK_LOTS, type Lot } from '@/lib/mock/data';
+import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
+import { compareAlphaNum } from '@/lib/table/compare';
 import PanelToolbar from '@/components/dashboard/panel-toolbar';
 import FilterChips from '@/components/dashboard/filter-chips';
 import Modal from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 
+const LOT_FIELDS: FieldDef[] = [
+  { key: 'name',    label: 'Lot' },
+  { key: 'address', label: 'Adresse' },
+  { key: 'city',    label: 'Ville' },
+];
+
+const LOT_ACCESSORS: Record<string, (l: Lot) => string> = {
+  name:    (l) => l.name,
+  address: (l) => l.address,
+  city:    (l) => l.city,
+};
+
 export default function LotsPanel() {
   const toast = useToast();
 
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState<string[]>(MOCK_FILTERS);
+  const [filters, setFilters] = useState<ActiveFilter[]>([]);
+  const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pageSize, setPageSize] = useState(10);
   const [lots, setLots] = useState<Lot[]>(MOCK_LOTS);
@@ -27,15 +42,29 @@ export default function LotsPanel() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return lots.filter(
-      (l) =>
+    return lots.filter((l) => {
+      const matchSearch =
         l.name.toLowerCase().includes(q) ||
         l.address.toLowerCase().includes(q) ||
-        l.city.toLowerCase().includes(q)
-    );
-  }, [lots, search]);
+        l.city.toLowerCase().includes(q);
+      const matchFilters = filters.every((f) =>
+        (LOT_ACCESSORS[f.field]?.(l) ?? '').toLowerCase().includes(f.value.toLowerCase())
+      );
+      return matchSearch && matchFilters;
+    });
+  }, [lots, search, filters]);
 
-  const visible = filtered.slice(0, pageSize);
+  const sorted = useMemo(() => {
+    if (!sort) return filtered;
+    const accessor = LOT_ACCESSORS[sort.key];
+    if (!accessor) return filtered;
+    return [...filtered].sort((a, b) => {
+      const cmp = compareAlphaNum(accessor(a), accessor(b));
+      return sort.dir === 'asc' ? cmp : -cmp;
+    });
+  }, [filtered, sort]);
+
+  const visible = sorted.slice(0, pageSize);
 
   const allVisibleSelected = visible.length > 0 && visible.every((l) => selected.has(l.id));
 
@@ -59,20 +88,34 @@ export default function LotsPanel() {
     });
   }, []);
 
-  const handleRemoveFilter = useCallback((f: string) => {
-    setFilters((prev) => prev.filter((x) => x !== f));
+  const handleRemoveFilter = useCallback((id: string) => {
+    setFilters((prev) => prev.filter((f) => f.id !== id));
   }, []);
 
   const handleResetFilters = useCallback(() => setFilters([]), []);
 
-  const handleAddFilter = useCallback((value: string) => {
-    if (filters.includes(value)) {
+  const handleAddFilter = useCallback((field: FieldDef, value: string) => {
+    const isDuplicate = filters.some(
+      (f) => f.field === field.key && f.value.toLowerCase() === value.toLowerCase()
+    );
+    if (isDuplicate) {
       toast('Ce filtre existe déjà', 'error');
       return;
     }
-    setFilters((prev) => [...prev, value]);
+    setFilters((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), field: field.key, label: field.label, value },
+    ]);
     toast('Filtre ajouté', 'success');
   }, [filters, toast]);
+
+  const handleSort = useCallback((key: string) => {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: 'asc' };
+      if (prev.dir === 'asc') return { key, dir: 'desc' };
+      return null;
+    });
+  }, []);
 
   const handleCreate = useCallback(() => {
     if (!newName.trim()) return;
@@ -105,10 +148,11 @@ export default function LotsPanel() {
         onImport={() => setImportOpen(true)}
       />
       <FilterChips
+        fields={LOT_FIELDS}
         filters={filters}
+        onAdd={handleAddFilter}
         onRemove={handleRemoveFilter}
         onReset={handleResetFilters}
-        onAdd={handleAddFilter}
       />
 
       {/* Table */}
@@ -126,19 +170,49 @@ export default function LotsPanel() {
                 />
               </th>
               <th className="text-left px-4 py-3 font-medium">
-                <span className="flex items-center gap-1">
-                  Lots <ArrowDownUp size={14} className="text-white/60" />
-                </span>
+                <button
+                  onClick={() => handleSort('name')}
+                  className="flex items-center gap-1 w-full"
+                >
+                  Lots
+                  {sort?.key === 'name' ? (
+                    sort.dir === 'asc'
+                      ? <ArrowUp size={14} className="text-vert-400" />
+                      : <ArrowDown size={14} className="text-vert-400" />
+                  ) : (
+                    <ArrowDownUp size={14} className="text-white/60" />
+                  )}
+                </button>
               </th>
               <th className="text-left px-4 py-3 font-medium">
-                <span className="flex items-center gap-1">
-                  Adresse <ArrowDownUp size={14} className="text-white/60" />
-                </span>
+                <button
+                  onClick={() => handleSort('address')}
+                  className="flex items-center gap-1 w-full"
+                >
+                  Adresse
+                  {sort?.key === 'address' ? (
+                    sort.dir === 'asc'
+                      ? <ArrowUp size={14} className="text-vert-400" />
+                      : <ArrowDown size={14} className="text-vert-400" />
+                  ) : (
+                    <ArrowDownUp size={14} className="text-white/60" />
+                  )}
+                </button>
               </th>
               <th className="text-left px-4 py-3 font-medium">
-                <span className="flex items-center gap-1">
-                  Ville <ArrowDownUp size={14} className="text-white/60" />
-                </span>
+                <button
+                  onClick={() => handleSort('city')}
+                  className="flex items-center gap-1 w-full"
+                >
+                  Ville
+                  {sort?.key === 'city' ? (
+                    sort.dir === 'asc'
+                      ? <ArrowUp size={14} className="text-vert-400" />
+                      : <ArrowDown size={14} className="text-vert-400" />
+                  ) : (
+                    <ArrowDownUp size={14} className="text-white/60" />
+                  )}
+                </button>
               </th>
               <th className="text-left px-4 py-3 font-medium">Dégrèvement estimés</th>
               <th className="px-4 py-3 w-10"></th>

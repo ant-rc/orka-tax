@@ -2,27 +2,33 @@
 
 import { useState } from 'react';
 import { Plus, X, Check } from 'lucide-react';
+import type { ActiveFilter, FieldDef } from '@/lib/table/filters';
 
 interface FilterChipsProps {
-  filters: string[];
-  onRemove: (f: string) => void;
+  fields: FieldDef[];
+  filters: ActiveFilter[];
+  onAdd: (field: FieldDef, value: string) => void;
+  onRemove: (id: string) => void;
   onReset: () => void;
-  onAdd: (value: string) => void;
 }
 
-export default function FilterChips({ filters, onRemove, onReset, onAdd }: FilterChipsProps) {
+export default function FilterChips({ fields, filters, onAdd, onRemove, onReset }: FilterChipsProps) {
   const [adding, setAdding] = useState(false);
+  const [selectedKey, setSelectedKey] = useState<string>(fields[0]?.key ?? '');
   const [value, setValue] = useState('');
 
   const cancel = () => {
     setAdding(false);
     setValue('');
+    setSelectedKey(fields[0]?.key ?? '');
   };
 
   const submit = () => {
     const v = value.trim();
     if (!v) return;
-    onAdd(v);
+    const field = fields.find((f) => f.key === selectedKey);
+    if (!field) return;
+    onAdd(field, v);
     cancel();
   };
 
@@ -30,14 +36,14 @@ export default function FilterChips({ filters, onRemove, onReset, onAdd }: Filte
     <div className="px-5 py-3 flex items-center gap-2 flex-wrap text-sm border-b border-ui-border">
       {filters.map((filter) => (
         <span
-          key={filter}
+          key={filter.id}
           className="bg-ui-bg-elevated border border-ui-border rounded-md px-2 py-1 text-xs flex items-center gap-1 text-ui-text"
         >
-          {filter}
+          <span className="font-medium">{filter.label}</span>:&nbsp;{filter.value}
           <button
-            onClick={() => onRemove(filter)}
+            onClick={() => onRemove(filter.id)}
             className="text-ui-text-muted hover:text-ui-text transition-colors"
-            aria-label={`Retirer ${filter}`}
+            aria-label={`Retirer le filtre ${filter.label}: ${filter.value}`}
           >
             <X size={12} />
           </button>
@@ -46,6 +52,15 @@ export default function FilterChips({ filters, onRemove, onReset, onAdd }: Filte
 
       {adding ? (
         <span className="flex items-center gap-1">
+          <select
+            value={selectedKey}
+            onChange={(e) => setSelectedKey(e.target.value)}
+            className="border border-ui-border rounded-md px-2 py-1 text-xs text-ui-text focus:outline-none focus:border-ui-border-accented"
+          >
+            {fields.map((f) => (
+              <option key={f.key} value={f.key}>{f.label}</option>
+            ))}
+          </select>
           <input
             autoFocus
             value={value}
@@ -54,9 +69,8 @@ export default function FilterChips({ filters, onRemove, onReset, onAdd }: Filte
               if (e.key === 'Enter') submit();
               if (e.key === 'Escape') cancel();
             }}
-            onBlur={cancel}
-            placeholder="Valeur du filtre"
-            className="border border-ui-border rounded-md px-2 py-1 text-xs w-36 text-ui-text placeholder:text-ui-text-dimmed focus:outline-none focus:border-ui-border-accented"
+            placeholder="Valeur"
+            className="border border-ui-border rounded-md px-2 py-1 text-xs w-28 text-ui-text placeholder:text-ui-text-dimmed focus:outline-none focus:border-ui-border-accented"
           />
           <button
             onMouseDown={(e) => e.preventDefault()}

@@ -10,6 +10,10 @@ const STATUT_CONFIG: Record<BienStatut, { label: string; className: string }> = 
   remboursement: { label: 'Remboursement obtenu', className: 'bg-info/10 text-info' },
 };
 
+export function statutLabel(statut: BienStatut): string {
+  return STATUT_CONFIG[statut].label;
+}
+
 export default function StatusBadge({ statut }: { statut: BienStatut }) {
   const { label, className } = STATUT_CONFIG[statut];
   return (
