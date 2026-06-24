@@ -1,9 +1,16 @@
 -- Migration: 0001_init
 -- Schema initial pour KADASTRA MVP
+--
+-- Order: enums → tables (+ enable RLS) → policies → trigger.
+-- Policies are created AFTER all tables because several of them cross-reference
+-- the memberships table, which must exist before the policies are declared.
 
 -- ============================================================
--- EXTENSIONS
+-- ENUMS
 -- ============================================================
+create type public.membership_role as enum ('owner', 'admin', 'member');
+create type public.import_status as enum ('pending', 'processing', 'done', 'error');
+create type public.bien_status as enum ('draft', 'validated', 'archived');
 
 -- ============================================================
 -- TABLE: organizations
@@ -16,14 +23,6 @@ create table public.organizations (
 );
 
 alter table public.organizations enable row level security;
-
-create policy "members read/write own org" on public.organizations
-  for all using (
-    id in (select org_id from public.memberships where user_id = auth.uid())
-  )
-  with check (
-    id in (select org_id from public.memberships where user_id = auth.uid())
-  );
 
 -- ============================================================
 -- TABLE: profiles
@@ -38,15 +37,9 @@ create table public.profiles (
 
 alter table public.profiles enable row level security;
 
-create policy "user read/write own profile" on public.profiles
-  for all using (id = auth.uid())
-  with check (id = auth.uid());
-
 -- ============================================================
 -- TABLE: memberships
 -- ============================================================
-create type public.membership_role as enum ('owner', 'admin', 'member');
-
 create table public.memberships (
   id          uuid primary key default gen_random_uuid(),
   org_id      uuid not null references public.organizations(id) on delete cascade,
@@ -57,10 +50,6 @@ create table public.memberships (
 );
 
 alter table public.memberships enable row level security;
-
-create policy "members read/write own org" on public.memberships
-  for all using (user_id = auth.uid())
-  with check (user_id = auth.uid());
 
 -- ============================================================
 -- TABLE: lots
@@ -76,19 +65,9 @@ create table public.lots (
 
 alter table public.lots enable row level security;
 
-create policy "members read/write own org" on public.lots
-  for all using (
-    org_id in (select org_id from public.memberships where user_id = auth.uid())
-  )
-  with check (
-    org_id in (select org_id from public.memberships where user_id = auth.uid())
-  );
-
 -- ============================================================
 -- TABLE: import_batches
 -- ============================================================
-create type public.import_status as enum ('pending', 'processing', 'done', 'error');
-
 create table public.import_batches (
   id            uuid primary key default gen_random_uuid(),
   org_id        uuid not null references public.organizations(id) on delete cascade,
@@ -102,14 +81,6 @@ create table public.import_batches (
 );
 
 alter table public.import_batches enable row level security;
-
-create policy "members read/write own org" on public.import_batches
-  for all using (
-    org_id in (select org_id from public.memberships where user_id = auth.uid())
-  )
-  with check (
-    org_id in (select org_id from public.memberships where user_id = auth.uid())
-  );
 
 -- ============================================================
 -- TABLE: column_mappings
@@ -125,20 +96,10 @@ create table public.column_mappings (
 
 alter table public.column_mappings enable row level security;
 
-create policy "members read/write own org" on public.column_mappings
-  for all using (
-    org_id in (select org_id from public.memberships where user_id = auth.uid())
-  )
-  with check (
-    org_id in (select org_id from public.memberships where user_id = auth.uid())
-  );
-
 -- ============================================================
 -- TABLE: biens
 -- Columns match CANONICAL_FIELDS keys exactly, plus computed/status cols
 -- ============================================================
-create type public.bien_status as enum ('draft', 'validated', 'archived');
-
 create table public.biens (
   id                            uuid primary key default gen_random_uuid(),
   org_id                        uuid not null references public.organizations(id) on delete cascade,
@@ -184,6 +145,50 @@ create table public.biens (
 );
 
 alter table public.biens enable row level security;
+
+-- ============================================================
+-- POLICIES
+-- All tables now exist, so cross-references to memberships are valid.
+-- ============================================================
+create policy "members read/write own org" on public.organizations
+  for all using (
+    id in (select org_id from public.memberships where user_id = auth.uid())
+  )
+  with check (
+    id in (select org_id from public.memberships where user_id = auth.uid())
+  );
+
+create policy "user read/write own profile" on public.profiles
+  for all using (id = auth.uid())
+  with check (id = auth.uid());
+
+create policy "members read/write own org" on public.memberships
+  for all using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+create policy "members read/write own org" on public.lots
+  for all using (
+    org_id in (select org_id from public.memberships where user_id = auth.uid())
+  )
+  with check (
+    org_id in (select org_id from public.memberships where user_id = auth.uid())
+  );
+
+create policy "members read/write own org" on public.import_batches
+  for all using (
+    org_id in (select org_id from public.memberships where user_id = auth.uid())
+  )
+  with check (
+    org_id in (select org_id from public.memberships where user_id = auth.uid())
+  );
+
+create policy "members read/write own org" on public.column_mappings
+  for all using (
+    org_id in (select org_id from public.memberships where user_id = auth.uid())
+  )
+  with check (
+    org_id in (select org_id from public.memberships where user_id = auth.uid())
+  );
 
 create policy "members read/write own org" on public.biens
   for all using (
