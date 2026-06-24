@@ -6,11 +6,10 @@ import { useRouter } from 'next/navigation';
 export default function IdentificationPage() {
   const router = useRouter();
 
-  const [numeroFiscal, setNumeroFiscal] = useState('');
-  const [nom, setNom] = useState('');
-  const [prenom, setPrenom] = useState('');
+  const [companyId, setCompanyId] = useState('');
+  const [companyName, setCompanyName] = useState('');
 
-  const canSubmit = numeroFiscal.trim() !== '' && nom.trim() !== '' && prenom.trim() !== '';
+  const canSubmit = companyId.trim() !== '' && companyName.trim() !== '';
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -32,57 +31,40 @@ export default function IdentificationPage() {
           Mon avis de taxe foncière
         </h1>
         <p className="text-sm text-ui-text-muted text-center mb-8">
-          Renseignez vos informations pour accéder à votre espace de suivi.
+          Identifiez votre entreprise pour accéder à votre espace de suivi.
         </p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <div className="flex flex-col gap-1.5">
             <label
-              htmlFor="numero-fiscal"
+              htmlFor="company-id"
               className="text-sm font-medium text-ui-text-highlighted"
             >
-              Numéro fiscal
+              Numéro ID de la boîte
             </label>
             <input
-              id="numero-fiscal"
+              id="company-id"
               type="text"
-              value={numeroFiscal}
-              onChange={(e) => setNumeroFiscal(e.target.value)}
-              placeholder="Ex. 1234567890123"
+              value={companyId}
+              onChange={(e) => setCompanyId(e.target.value)}
+              placeholder="Ex. 552 081 317"
               className="border border-ui-border rounded-md px-3 py-2 text-sm text-ui-text placeholder:text-ui-text-dimmed focus:outline-none focus:border-ui-border-accented"
             />
           </div>
 
           <div className="flex flex-col gap-1.5">
             <label
-              htmlFor="nom"
+              htmlFor="company-name"
               className="text-sm font-medium text-ui-text-highlighted"
             >
-              Nom
+              Nom de l&apos;entreprise
             </label>
             <input
-              id="nom"
+              id="company-name"
               type="text"
-              value={nom}
-              onChange={(e) => setNom(e.target.value)}
-              placeholder="Ex. Dupont"
-              className="border border-ui-border rounded-md px-3 py-2 text-sm text-ui-text placeholder:text-ui-text-dimmed focus:outline-none focus:border-ui-border-accented"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="prenom"
-              className="text-sm font-medium text-ui-text-highlighted"
-            >
-              Prénom
-            </label>
-            <input
-              id="prenom"
-              type="text"
-              value={prenom}
-              onChange={(e) => setPrenom(e.target.value)}
-              placeholder="Ex. Marie"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="Ex. Cabinet Patrimoine SAS"
               className="border border-ui-border rounded-md px-3 py-2 text-sm text-ui-text placeholder:text-ui-text-dimmed focus:outline-none focus:border-ui-border-accented"
             />
           </div>
