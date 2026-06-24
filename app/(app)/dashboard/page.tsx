@@ -3,7 +3,7 @@ import EstimationCard from '@/components/dashboard/estimation-card';
 import SuiviCard from '@/components/dashboard/suivi-card';
 import LotsPanel from '@/components/dashboard/lots-panel';
 
-export default function Home() {
+export default function DashboardPage() {
   return (
     <div className="flex flex-col lg:flex-row gap-6 p-6">
       {/* Left column */}

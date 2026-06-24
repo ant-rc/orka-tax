@@ -1,6 +1,6 @@
 import BiensPanel from '@/components/dashboard/biens-panel';
 
-export default async function LotBiensPage({
+export default async function VosBiensPage({
   params,
 }: {
   params: Promise<{ lotId: string }>;

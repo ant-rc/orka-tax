@@ -14,7 +14,7 @@ export default async function BienDetailPage({
     <div className="m-6">
       <div className="bg-white rounded-lg border border-ui-border p-6">
         <Link
-          href={`/lots/${lotId}`}
+          href={`/lot/${lotId}/vos-biens`}
           className="text-sm text-ui-text-muted hover:text-ui-text transition-colors mb-4 inline-block"
         >
           ← Retour aux biens

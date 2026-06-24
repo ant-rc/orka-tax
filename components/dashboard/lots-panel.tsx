@@ -178,7 +178,7 @@ export default function LotsPanel() {
                   </td>
                   <td className="px-4 py-3">
                     <Link
-                      href={`/lots/${lot.id}`}
+                      href={`/lot/${lot.id}/vos-biens`}
                       className="bg-vert-400 text-cyprus-900 rounded-md size-7 flex items-center justify-center hover:bg-vert-300 transition-colors"
                       aria-label={`Ouvrir le lot ${lot.name}`}
                     >

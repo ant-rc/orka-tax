@@ -85,7 +85,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
   }, [toast]);
 
   const handleVoir = useCallback((bienId: string) => {
-    router.push(`/lots/${lotId}/biens/${bienId}`);
+    router.push(`/lot/${lotId}/vos-biens/${bienId}`);
   }, [router, lotId]);
 
   const resetAddForm = useCallback(() => {
