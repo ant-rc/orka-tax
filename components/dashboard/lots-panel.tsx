@@ -8,6 +8,7 @@ import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
 import PanelToolbar from '@/components/dashboard/panel-toolbar';
 import FilterChips from '@/components/dashboard/filter-chips';
+import Pagination from '@/components/dashboard/pagination';
 import Modal from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 
@@ -31,6 +32,7 @@ export default function LotsPanel() {
   const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(1);
   const [lots, setLots] = useState<Lot[]>(MOCK_LOTS);
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -64,7 +66,10 @@ export default function LotsPanel() {
     });
   }, [filtered, sort]);
 
-  const visible = sorted.slice(0, pageSize);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+
+  const visible = sorted.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const allVisibleSelected = visible.length > 0 && visible.every((l) => selected.has(l.id));
 
@@ -273,8 +278,15 @@ export default function LotsPanel() {
       </div>
 
       {/* Footer */}
-      <div className="px-5 py-4 flex items-center justify-between text-xs text-ui-text-muted border-t border-ui-border">
-        <span>{visible.length} sur {filtered.length} lots</span>
+      <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-3 text-xs text-ui-text-muted border-t border-ui-border">
+        <span>
+          {filtered.length === 0
+            ? '0'
+            : `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, filtered.length)}`
+          }{' '}
+          sur {filtered.length} lots
+        </span>
+        <Pagination page={safePage} totalPages={totalPages} onPageChange={setPage} />
         <div className="relative flex items-center gap-2">
           <span>Affichage des resultats</span>
           <button
@@ -288,7 +300,7 @@ export default function LotsPanel() {
               {[10, 25, 50].map((n) => (
                 <button
                   key={n}
-                  onClick={() => { setPageSize(n); setPageSizeOpen(false); }}
+                  onClick={() => { setPageSize(n); setPage(1); setPageSizeOpen(false); }}
                   className={`block w-full px-4 py-2 text-sm text-left hover:bg-ui-bg-elevated transition-colors ${pageSize === n ? 'font-semibold text-ui-text-highlighted' : 'text-ui-text'}`}
                 >
                   {n}
