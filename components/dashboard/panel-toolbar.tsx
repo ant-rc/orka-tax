@@ -1,7 +1,6 @@
 'use client';
 
 import { Search, Download, Plus } from 'lucide-react';
-import { MOCK_COUNTS } from '@/lib/mock/data';
 
 interface PanelToolbarProps {
   primaryLabel: string;
@@ -9,6 +8,8 @@ interface PanelToolbarProps {
   onSearchChange: (v: string) => void;
   onPrimary: () => void;
   onImport: () => void;
+  count: number;
+  total: number;
 }
 
 export default function PanelToolbar({
@@ -17,13 +18,15 @@ export default function PanelToolbar({
   onSearchChange,
   onPrimary,
   onImport,
+  count,
+  total,
 }: PanelToolbarProps) {
   return (
     <div className="p-5 flex items-center justify-between gap-4 flex-wrap border-b border-ui-border">
       <div className="flex items-center gap-3">
         <span className="text-lg font-semibold text-ui-text-highlighted">Configurations de vos biens</span>
         <span className="bg-vert-200 text-vert-900 rounded-md px-2 py-0.5 text-sm font-medium">
-          {MOCK_COUNTS.configured} /{MOCK_COUNTS.total}
+          {count} /{total}
         </span>
       </div>
       <div className="flex items-center gap-2 flex-wrap">

@@ -169,6 +169,8 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
         onSearchChange={setSearch}
         onPrimary={() => setAddOpen(true)}
         onImport={() => setImportOpen(true)}
+        count={filtered.length}
+        total={biens.length}
       />
       <FilterChips
         fields={BIEN_FIELDS}
@@ -276,9 +278,11 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
                     />
                   </td>
                   <td className="px-4 py-3">
-                    <span className="text-cyprus-900 font-medium">{bien.type}</span>
+                    <span className="block max-w-[140px] truncate text-cyprus-900 font-medium" title={bien.type}>{bien.type}</span>
                   </td>
-                  <td className="px-4 py-3 text-ui-text-muted">{bien.reference}</td>
+                  <td className="px-4 py-3">
+                    <span className="block max-w-[160px] truncate text-ui-text-muted" title={bien.reference}>{bien.reference}</span>
+                  </td>
                   <td className="px-4 py-3 text-ui-text-muted">{bien.surface}</td>
                   <td className="px-4 py-3 text-ui-text-muted">{bien.etage}</td>
                   <td className="px-4 py-3">

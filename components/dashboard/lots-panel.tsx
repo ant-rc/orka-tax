@@ -146,6 +146,8 @@ export default function LotsPanel() {
         onSearchChange={setSearch}
         onPrimary={() => setCreateOpen(true)}
         onImport={() => setImportOpen(true)}
+        count={filtered.length}
+        total={lots.length}
       />
       <FilterChips
         fields={LOT_FIELDS}
@@ -240,11 +242,15 @@ export default function LotsPanel() {
                   <td className="px-4 py-3">
                     <span className="flex items-center gap-2">
                       <Folder size={16} className="text-folder shrink-0" />
-                      <span className="text-ui-text-highlighted font-medium">{lot.name}</span>
+                      <span className="block max-w-[160px] truncate text-ui-text-highlighted font-medium" title={lot.name}>{lot.name}</span>
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-ui-text-muted">{lot.address}</td>
-                  <td className="px-4 py-3 text-ui-text-muted">{lot.city}</td>
+                  <td className="px-4 py-3">
+                    <span className="block max-w-[220px] truncate uppercase text-ui-text-muted" title={lot.address}>{lot.address}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="block max-w-[160px] truncate uppercase text-ui-text-muted" title={lot.city}>{lot.city}</span>
+                  </td>
                   <td className="px-4 py-3">
                     <span className="border border-ui-border rounded-full px-2 py-0.5 text-xs text-ui-text-muted">
                       En attente
