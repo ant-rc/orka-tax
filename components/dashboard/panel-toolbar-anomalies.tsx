@@ -22,13 +22,13 @@ export default function PanelToolbarAnomalies({
   total,
 }: PanelToolbarProps) {
   return (
-    <div className="p-5 flex items-center justify-between gap-4 flex-wrap">
+    <div className="pt-10 pb-4 flex items-center justify-between gap-4 flex-wrap">
       <div className="flex items-center gap-3">
         <span className="text-lg font-semibold text-ui-text-highlighted">Résultat de votre vérification</span>
       </div>
       <div className="flex items-center gap-2 flex-wrap">
-        <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ui-text-dimmed" />
+        <div className="relative bg-white">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ui-text-dimmed " />
           <input
             type="text"
             placeholder="Chercher"
@@ -39,7 +39,7 @@ export default function PanelToolbarAnomalies({
         </div>
         <button
           onClick={onImport}
-          className="border border-ui-border rounded-md px-3 py-2 text-sm flex items-center gap-1.5 text-ui-text hover:bg-ui-bg-elevated transition-colors"
+          className=" rounded-md px-3 py-2 text-sm flex items-center gap-1.5 text-ui-text hover:bg-ui-bg-elevated transition-colors border-1 border-black-100"
         >
           <Download size={14} />
           Importer
