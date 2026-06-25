@@ -6,9 +6,7 @@ import { ArrowDownUp, ArrowUp, ArrowDown, ChevronDown, Trash2 } from 'lucide-rea
 import { BIEN_TYPES, BIEN_TYPE_ICON, type Bien, type BienType } from '@/lib/domain/property';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
-import { fetchBiens, createBien, deleteBien } from '@/lib/supabase/queries';
-import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
-import { getActiveOrgId } from '@/lib/supabase/client';
+import { deleteBien } from '@/lib/supabase/queries';
 import PanelToolbar from '@/components/dashboard/panel-toolbar';
 import FilterChips from '@/components/dashboard/filter-chips';
 import Pagination from '@/components/dashboard/pagination';
@@ -16,6 +14,20 @@ import StatusBadge, { statutLabel } from '@/components/dashboard/status-badge';
 import Modal from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import { useSelection } from '@/components/dashboard/selection-context';
+import { parseImportFile, rowsToBiens, normalizeInvariant, bienValueEqual } from '@/lib/import/client';
+import { CANONICAL_FIELDS } from '@/lib/canonical/fields';
+import { createClient, getActiveOrgId } from '@/lib/supabase/client';
+import { dbBienToBien, BIEN_DISPLAY_COLUMNS } from '@/lib/biens/display';
+import type { Database } from '@/lib/supabase/types';
+
+type BienUpdate = Database['public']['Tables']['biens']['Update'];
+type BienInsert = Database['public']['Tables']['biens']['Insert'];
+
+/** "28m2" / "28 m²" / "28" → 28 (numérique, pour la colonne surface_m2). */
+function parseSurface(raw: string): number | null {
+  const m = raw.replace(',', '.').match(/[\d.]+/);
+  return m ? Number(m[0]) : null;
+}
 
 const BIEN_FIELDS: FieldDef[] = [
   { key: 'type',      label: 'Type' },
@@ -45,9 +57,10 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
   const [biens, setBiens] = useState<Bien[]>([]);
-  const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Bien | null>(null);
 
@@ -65,16 +78,31 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
   // Reset the shared count when leaving this screen.
   useEffect(() => () => setSelectedCount(0), [setSelectedCount]);
 
-  // Load the lot's biens from Supabase.
+  // Charge les biens du lot depuis Supabase.
+  const loadBiens = useCallback(async () => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('biens')
+      .select(BIEN_DISPLAY_COLUMNS)
+      .eq('lot_id', lotId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      toast('Impossible de charger les biens', 'error');
+    } else {
+      setBiens((data ?? []).map(dbBienToBien));
+    }
+  }, [lotId, toast]);
+
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    fetchBiens(lotId)
-      .then((rows) => { if (active) setBiens(rows); })
-      .catch(() => { if (active) toast('Impossible de charger les biens', 'error'); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [lotId, toast]);
+    (async () => {
+      if (active) await loadBiens();
+    })();
+    return () => {
+      active = false;
+    };
+  }, [loadBiens]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -161,7 +189,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
       await deleteBien(id);
       setBiens((prev) => prev.filter((b) => b.id !== id));
       setSelected((prev) => { const next = new Set(prev); next.delete(id); return next; });
-      toast('Bien supprimé', 'error');
+      toast('Bien supprimé', 'success');
     } catch {
       toast('Échec de la suppression', 'error');
     } finally {
@@ -182,25 +210,124 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
 
   const handleAdd = useCallback(async () => {
     try {
-      const bien = await createBien(getActiveOrgId(), lotId, {
-        type: newType,
-        reference: newRef.trim() || crypto.randomUUID().slice(0, 12),
-        surface: newSurface.trim() || '0m2',
-        etage: newEtage.trim() || '0',
+      const supabase = createClient();
+      const { error } = await supabase.from('biens').insert({
+        org_id: getActiveOrgId(),
+        lot_id: lotId,
+        invariant_cadastral: newRef.trim() || null,
+        nature: newType,
+        surface_m2: parseSurface(newSurface),
+        etage: newEtage.trim() || null,
+        status: 'draft',
       });
-      setBiens((prev) => [bien, ...prev]);
+      if (error) throw error;
+
+      await loadBiens();
       setAddOpen(false);
       resetAddForm();
       toast('Bien ajouté', 'success');
-    } catch {
-      toast('Échec de l’ajout du bien', 'error');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Échec de l'ajout du bien", 'error');
     }
-  }, [lotId, newType, newRef, newSurface, newEtage, resetAddForm, toast]);
+  }, [lotId, newType, newRef, newSurface, newEtage, loadBiens, resetAddForm, toast]);
 
-  const handleImportConfirm = useCallback(() => {
+  const closeImport = useCallback(() => {
     setImportOpen(false);
-    toast('Import simulé — pipeline à brancher');
-  }, [toast]);
+    setImportFile(null);
+  }, []);
+
+  const handleImportConfirm = useCallback(async () => {
+    if (!importFile) return;
+    setImporting(true);
+    try {
+      const table = await parseImportFile(importFile);
+      const records = rowsToBiens(table);
+
+      // Garde-fou : si aucune ligne ne porte d'invariant, la colonne « ID » n'a pas été
+      // détectée → on refuse plutôt que de créer des doublons silencieusement.
+      if (records.length > 0 && records.every((r) => normalizeInvariant(r.invariant_cadastral) === '')) {
+        throw new Error(
+          "Colonne « invariant / ID » introuvable dans le fichier : impossible de rapprocher les biens.",
+        );
+      }
+
+      const supabase = createClient();
+
+      // On charge les valeurs COMPLÈTES des biens du lot pour comparer champ par champ.
+      const allColumns = ['id', ...CANONICAL_FIELDS.map((f) => f.key)].join(', ');
+      const { data: existingRows, error: loadErr } = await supabase
+        .from('biens')
+        .select(allColumns)
+        .eq('lot_id', lotId);
+      if (loadErr) throw new Error(loadErr.message);
+
+      // Index invariant normalisé -> ligne existante complète.
+      const byInvariant = new Map<string, Record<string, unknown>>();
+      for (const row of (existingRows ?? []) as unknown as Record<string, unknown>[]) {
+        const key = normalizeInvariant(row.invariant_cadastral);
+        if (key) byInvariant.set(key, row);
+      }
+
+      let updated = 0;
+      let unchanged = 0;
+      let inserted = 0;
+      const toInsert: BienInsert[] = [];
+      for (const rec of records) {
+        const key = normalizeInvariant(rec.invariant_cadastral);
+        const existing = key ? byInvariant.get(key) : undefined;
+
+        if (existing) {
+          // Diff : on ne garde que les champs présents (non vides) dans le fichier ET
+          // dont la valeur diffère de l'existant.
+          const payload: BienUpdate = Object.fromEntries(
+            Object.entries(rec).filter(
+              ([k, v]) => v !== null && v !== '' && !bienValueEqual(existing[k], v),
+            ),
+          );
+          if (Object.keys(payload).length === 0) {
+            unchanged++;
+            continue;
+          }
+          // .select() permet de compter les lignes réellement modifiées : si RLS
+          // bloque l'UPDATE, Supabase ne renvoie ni erreur ni ligne.
+          const { data, error } = await supabase
+            .from('biens')
+            .update(payload)
+            .eq('id', existing.id as string)
+            .select('id');
+          if (error) throw new Error(error.message);
+          if (data && data.length > 0) updated++;
+        } else {
+          // Nouveau bien : pas de correspondance dans la liste → on l'ajoute au lot.
+          toInsert.push({ ...rec, org_id: getActiveOrgId(), lot_id: lotId } as BienInsert);
+        }
+      }
+
+      if (toInsert.length > 0) {
+        const { data, error } = await supabase.from('biens').insert(toInsert).select('id');
+        if (error) throw new Error(error.message);
+        inserted = data?.length ?? 0;
+      }
+
+      // Des biens devaient changer mais aucune écriture n'a abouti → RLS probable.
+      if (updated === 0 && inserted === 0 && unchanged === 0 && records.length > 0) {
+        throw new Error(
+          "Écriture refusée par la base (RLS). Applique la migration 0004 : « demo public write » sur la table biens.",
+        );
+      }
+
+      await loadBiens();
+      closeImport();
+      toast(
+        `${updated} bien(s) mis à jour, ${inserted} ajouté(s), ${unchanged} inchangé(s)`,
+        updated + inserted > 0 ? 'success' : 'default',
+      );
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Échec de l'import", 'error');
+    } finally {
+      setImporting(false);
+    }
+  }, [importFile, lotId, loadBiens, closeImport, toast]);
 
   return (
     <div className="flex flex-col">
@@ -303,7 +430,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
             {visible.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-4 py-6 text-center text-ui-text-muted text-sm">
-                  {loading ? 'Chargement…' : 'Aucun bien trouvé'}
+                  Aucun bien trouvé
                 </td>
               </tr>
             ) : (
@@ -487,30 +614,36 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
       {/* Import modal */}
       <Modal
         open={importOpen}
-        onClose={() => setImportOpen(false)}
-        title="Importer des biens"
+        onClose={closeImport}
+        title="Mettre à jour les biens (CSV ou XLSX)"
         footer={
           <>
             <button
-              onClick={() => setImportOpen(false)}
+              onClick={closeImport}
               className="border border-ui-border rounded-md px-4 py-2 text-sm text-ui-text hover:bg-ui-bg-elevated transition-colors"
             >
               Annuler
             </button>
             <button
               onClick={handleImportConfirm}
-              className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors"
+              disabled={!importFile || importing}
+              className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Importer
+              {importing ? 'Import…' : 'Importer'}
             </button>
           </>
         }
       >
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-ui-text-muted">Sélectionnez un fichier CSV ou XLSX à importer.</p>
+          <p className="text-sm text-ui-text-muted">
+            Sélectionnez un fichier CSV ou XLSX. Les biens y figurant (rapprochés par leur
+            invariant cadastral) seront mis à jour&nbsp;; les biens absents du fichier restent
+            inchangés.
+          </p>
           <input
             type="file"
-            accept=".csv,.xlsx"
+            accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
             className="text-sm text-ui-text file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:border-ui-border file:text-sm file:text-ui-text file:bg-white hover:file:bg-ui-bg-elevated"
           />
         </div>
