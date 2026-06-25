@@ -13,12 +13,12 @@ import StatusBadge, { statutLabel } from '@/components/dashboard/status-badge';
 import Modal from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import { useSelection } from '@/components/dashboard/selection-context';
+import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
 import { parseImportFile } from '@/lib/import/client';
 import { diffBiensAgainstImport } from '@/lib/import/diff';
 import { createClient, getActiveOrgId } from '@/lib/supabase/client';
 import { deleteBien, simulateBiens } from '@/lib/supabase/queries';
 import { dbBienToBien, BIEN_DISPLAY_COLUMNS } from '@/lib/biens/display';
-import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
 import ImportModal from '@/components/ui/import-modal';
 import type { Database } from '@/lib/supabase/types';
 

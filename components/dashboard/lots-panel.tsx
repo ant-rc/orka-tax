@@ -12,12 +12,12 @@ import Pagination from '@/components/dashboard/pagination';
 import Modal from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import { useSelection } from '@/components/dashboard/selection-context';
+import { useFiscalProfile } from '@/components/dashboard/fiscal-profile-context';
+import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
 import { buildImportedLot, parseImportFile, rowsToBiens } from '@/lib/import/client';
 import { createClient, getActiveOrgId } from '@/lib/supabase/client';
-import type { Database } from '@/lib/supabase/types';
-import {useFiscalProfile} from "@/components/dashboard/fiscal-profile-context";
 import { deleteLot, fetchBienIdsByLots, simulateBiens } from '@/lib/supabase/queries';
-import ConfirmDeleteModal from "@/components/dashboard/confirm-delete-modal";
+import type { Database } from '@/lib/supabase/types';
 import ImportModal from '@/components/ui/import-modal';
 
 type BienInsert = Database['public']['Tables']['biens']['Insert'];
@@ -83,7 +83,7 @@ export default function LotsPanel() {
 
   // Load the portfolio for the active fiscal profile; reset view on switch.
   useEffect(() => {
-    if (!activeProfileId) { setLots([]); setLoading(false); return; }
+    if (!activeProfileId) { setLots([]); return; }
     let active = true;
     (async () => {
       const supabase = createClient();
