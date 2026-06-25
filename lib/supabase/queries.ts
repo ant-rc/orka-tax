@@ -10,12 +10,13 @@ import {
 } from '@/lib/domain/property';
 import { simulateStatut } from '@/lib/tunnel/advance';
 import { evaluateBien } from '@/lib/comparison/evaluate';
+import { type FieldAnomaly } from '@/lib/comparison/compare';
 import type { ComparableValues } from '@/lib/domain/comparable';
 
 type LotRow = Database['public']['Tables']['lots']['Row'];
 type BienRow = Database['public']['Tables']['biens']['Row'];
 type FiscalProfileRow = Database['public']['Tables']['fiscal_profiles']['Row'];
-type BienSelectRow = Pick<BienRow, 'id' | 'lot_id' | 'nature' | 'invariant_cadastral' | 'surface_m2' | 'etage' | 'statut' | 'has_anomaly'>;
+type BienSelectRow = Pick<BienRow, 'id' | 'lot_id' | 'nature' | 'invariant_cadastral' | 'surface_m2' | 'etage' | 'statut' | 'has_anomaly' | 'anomalies' | 'degrevement_estime'>;
 
 // ---------------------------------------------------------------------------
 // Mappers — Supabase rows → domain models
@@ -45,8 +46,8 @@ function mapBien(row: BienSelectRow): Bien {
     etage: row.etage ?? '',
     statut: (row.statut ?? 'importe') as BienStatut,
     hasAnomaly: row.has_anomaly ?? false,
-    anomalies: [],
-    degrevement: 0,
+    anomalies: (row.anomalies as unknown as FieldAnomaly[]) ?? [],
+    degrevement: Number(row.degrevement_estime ?? 0),
   };
 }
 
@@ -123,7 +124,7 @@ export async function createLot(
 // Biens
 // ---------------------------------------------------------------------------
 
-const BIEN_SELECT = 'id, lot_id, nature, invariant_cadastral, surface_m2, etage, statut, has_anomaly';
+const BIEN_SELECT = 'id, lot_id, nature, invariant_cadastral, surface_m2, etage, statut, has_anomaly, anomalies, degrevement_estime';
 
 export async function fetchBiens(lotId: string): Promise<Bien[]> {
   const supabase = createClient();
