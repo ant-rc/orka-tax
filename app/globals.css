@@ -33,6 +33,7 @@
   --color-danger-text: #9f0712;
   --color-warning-bg: #ffe2e2;
   --color-folder: #d8b266;
+  --color-filter: #f1f5f9;
 
   /* Status colors (bien tunnel) */
   --color-info: #2b7fff;
@@ -80,3 +81,6 @@ html {
   width:40px;
 }
 
+.filter-color {
+  background-color: var(--color-filter);
+}
