@@ -460,6 +460,58 @@ export type Database = {
           },
         ]
       }
+      reclamations: {
+        Row: {
+          created_at: string
+          fiscal_profile_id: string | null
+          id: string
+          lot_id: string
+          org_id: string
+          statut: string
+          total_degrevement: number
+        }
+        Insert: {
+          created_at?: string
+          fiscal_profile_id?: string | null
+          id?: string
+          lot_id: string
+          org_id: string
+          statut?: string
+          total_degrevement?: number
+        }
+        Update: {
+          created_at?: string
+          fiscal_profile_id?: string | null
+          id?: string
+          lot_id?: string
+          org_id?: string
+          statut?: string
+          total_degrevement?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reclamations_fiscal_profile_id_fkey"
+            columns: ["fiscal_profile_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reclamations_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "lots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reclamations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
