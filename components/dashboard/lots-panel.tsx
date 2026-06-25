@@ -2,11 +2,12 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowDownUp, ArrowUp, ArrowDown, ChevronRight, ChevronDown } from 'lucide-react';
+import { ArrowDownUp, ArrowUp, ArrowDown, ChevronRight, ChevronDown, Trash2 } from 'lucide-react';
 import { type Lot } from '@/lib/domain/property';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
-import { fetchLots, createLot } from '@/lib/supabase/queries';
+import { fetchLots, createLot, deleteLot } from '@/lib/supabase/queries';
+import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
 import { getActiveOrgId } from '@/lib/supabase/client';
 import { useFiscalProfile } from '@/components/dashboard/fiscal-profile-context';
 import PanelToolbar from '@/components/dashboard/panel-toolbar';
@@ -44,6 +45,7 @@ export default function LotsPanel() {
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Lot | null>(null);
 
   // Create form state
   const [newName, setNewName] = useState('');
@@ -174,6 +176,21 @@ export default function LotsPanel() {
     toast('Import simulé — pipeline à brancher');
   }, [toast]);
 
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteTarget) return;
+    const id = deleteTarget.id;
+    try {
+      await deleteLot(id);
+      setLots((prev) => prev.filter((l) => l.id !== id));
+      setSelected((prev) => { const next = new Set(prev); next.delete(id); return next; });
+      toast('Lot supprimé', 'error');
+    } catch {
+      toast('Échec de la suppression du lot', 'error');
+    } finally {
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, toast]);
+
   return (
     <div className="bg-white rounded-lg border border-ui-border shadow-sm overflow-hidden flex flex-col">
       <PanelToolbar
@@ -195,10 +212,10 @@ export default function LotsPanel() {
 
       {/* Table */}
       <div className="flex-1 overflow-auto">
-        <table className="w-full">
+        <table className="w-full border-separate border-spacing-0">
           <thead>
-            <tr className="bg-cyprus-900 text-white text-sm">
-              <th className="px-4 py-3 w-10">
+            <tr className="bg-cyprus-950 text-white text-sm">
+              <th className="px-4 py-3 w-10 rounded-tl-lg">
                 <input
                   type="checkbox"
                   className="rounded"
@@ -253,7 +270,7 @@ export default function LotsPanel() {
                 </button>
               </th>
               <th className="text-left px-4 py-3 font-medium">Dégrèvement estimés</th>
-              <th className="px-4 py-3 w-10"></th>
+              <th className="px-4 py-3 w-24 rounded-tr-lg"></th>
             </tr>
           </thead>
           <tbody>
@@ -293,13 +310,22 @@ export default function LotsPanel() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <Link
-                      href={`/lot/${lot.id}/vos-biens`}
-                      className="bg-vert-400 text-cyprus-900 rounded-md size-7 flex items-center justify-center hover:bg-vert-300 transition-colors"
-                      aria-label={`Ouvrir le lot ${lot.name}`}
-                    >
-                      <ChevronRight size={16} />
-                    </Link>
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => setDeleteTarget(lot)}
+                        className="text-error hover:bg-error/10 rounded-md size-7 flex items-center justify-center transition-colors"
+                        aria-label={`Supprimer ${lot.name}`}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                      <Link
+                        href={`/lot/${lot.id}/vos-biens`}
+                        className="bg-vert-400 text-cyprus-900 rounded-md size-7 flex items-center justify-center hover:bg-vert-300 transition-colors"
+                        aria-label={`Ouvrir le lot ${lot.name}`}
+                      >
+                        <ChevronRight size={16} />
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -342,6 +368,15 @@ export default function LotsPanel() {
         </div>
       </div>
 
+      {/* Confirm delete modal */}
+      <ConfirmDeleteModal
+        open={!!deleteTarget}
+        title={`Supprimer le lot « ${deleteTarget?.name ?? ''} »`}
+        description={"Êtes-vous sûr de vouloir supprimer ce lot ?\nCette action est irréversible."}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteConfirm}
+      />
+
       {/* Create modal */}
       <Modal
         open={createOpen}
@@ -358,7 +393,7 @@ export default function LotsPanel() {
             <button
               onClick={handleCreate}
               disabled={!newName.trim()}
-              className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors disabled:bg-ui-border disabled:text-ui-text-dimmed disabled:cursor-not-allowed"
             >
               Créer
             </button>

@@ -171,6 +171,12 @@ export async function deleteBien(bienId: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function deleteLot(lotId: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.from('lots').delete().eq('id', lotId);
+  if (error) throw error;
+}
+
 // ---------------------------------------------------------------------------
 // Declaration counts
 // ---------------------------------------------------------------------------

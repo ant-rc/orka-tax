@@ -7,6 +7,7 @@ import { BIEN_TYPES, BIEN_TYPE_ICON, type Bien, type BienType } from '@/lib/doma
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
 import { fetchBiens, createBien, deleteBien } from '@/lib/supabase/queries';
+import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
 import { getActiveOrgId } from '@/lib/supabase/client';
 import PanelToolbarAnomalies from '@/components/dashboard/panel-toolbar-anomalies';
 import FilterChips from '@/components/dashboard/filter-chips';
@@ -48,6 +49,7 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Bien | null>(null);
 
   // Add form state
   const [newType, setNewType] = useState<BienType>('Appartement');
@@ -144,7 +146,9 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
     });
   }, []);
 
-  const handleDelete = useCallback(async (id: string) => {
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteTarget) return;
+    const id = deleteTarget.id;
     try {
       await deleteBien(id);
       setBiens((prev) => prev.filter((b) => b.id !== id));
@@ -152,8 +156,10 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
       toast('Bien supprimé', 'error');
     } catch {
       toast('Échec de la suppression', 'error');
+    } finally {
+      setDeleteTarget(null);
     }
-  }, [toast]);
+  }, [deleteTarget, toast]);
 
   const handleVoir = useCallback((bienId: string) => {
     router.push(`/manage-anomalies/${lotId}/vos-biens/${bienId}`);
@@ -211,10 +217,10 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
       <DuplicatesCountAnomalies/>
       {/* Table */}
       <div className="flex-1 overflow-auto">
-        <table className="w-full">
+        <table className="w-full border-separate border-spacing-0">
           <thead>
-            <tr className="bg-cyprus-900 text-white text-sm">
-              <th className="px-4 py-3 w-10">
+            <tr className="bg-cyprus-950 text-white text-sm">
+              <th className="px-4 py-3 w-10 rounded-tl-lg">
                 <input
                   type="checkbox"
                   className="rounded"
@@ -284,7 +290,7 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
                   )}
                 </button>
               </th>
-              <th className="px-4 py-3 w-24"></th>
+              <th className="px-4 py-3 w-24 rounded-tr-lg"></th>
             </tr>
           </thead>
           <tbody>
@@ -328,7 +334,7 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
                       <button
-                        onClick={() => handleDelete(bien.id)}
+                        onClick={() => setDeleteTarget(bien)}
                         className="text-error hover:bg-error/10 rounded-md size-7 flex items-center justify-center transition-colors"
                         aria-label={`Supprimer ${bien.reference}`}
                       >
@@ -382,6 +388,15 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
           )}
         </div>
       </div>
+
+      {/* Confirm delete modal */}
+      <ConfirmDeleteModal
+        open={!!deleteTarget}
+        title={`Supprimer le bien « ${deleteTarget?.reference ?? ''} »`}
+        description={"Êtes-vous sûr de vouloir supprimer ce bien ?\nCette action est irréversible."}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteConfirm}
+      />
 
       {/* Add modal */}
       <Modal
