@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowDownUp, ArrowUp, ArrowDown, ChevronDown, Trash2 } from 'lucide-react';
-import { MOCK_BIENS, BIEN_TYPES, BIEN_TYPE_ICON, type Bien, type BienType } from '@/lib/mock/data';
+import { BIEN_TYPES, BIEN_TYPE_ICON, type Bien, type BienType } from '@/lib/domain/property';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
+import { fetchBiens, createBien, deleteBien } from '@/lib/supabase/queries';
+import { getActiveOrgId } from '@/lib/supabase/client';
 import PanelToolbarAnomalies from '@/components/dashboard/panel-toolbar-anomalies';
 import FilterChips from '@/components/dashboard/filter-chips';
 import Pagination from '@/components/dashboard/pagination';
@@ -41,7 +43,8 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
-  const [biens, setBiens] = useState<Bien[]>(MOCK_BIENS);
+  const [biens, setBiens] = useState<Bien[]>([]);
+  const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
@@ -51,6 +54,17 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
   const [newRef, setNewRef] = useState('');
   const [newSurface, setNewSurface] = useState('');
   const [newEtage, setNewEtage] = useState('');
+
+  // Load the lot's biens from Supabase.
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    fetchBiens(lotId)
+      .then((rows) => { if (active) setBiens(rows); })
+      .catch(() => { if (active) toast('Impossible de charger les biens', 'error'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [lotId, toast]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -130,10 +144,15 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
     });
   }, []);
 
-  const handleDelete = useCallback((id: string) => {
-    setBiens((prev) => prev.filter((b) => b.id !== id));
-    setSelected((prev) => { const next = new Set(prev); next.delete(id); return next; });
-    toast('Bien supprimé', 'error');
+  const handleDelete = useCallback(async (id: string) => {
+    try {
+      await deleteBien(id);
+      setBiens((prev) => prev.filter((b) => b.id !== id));
+      setSelected((prev) => { const next = new Set(prev); next.delete(id); return next; });
+      toast('Bien supprimé', 'error');
+    } catch {
+      toast('Échec de la suppression', 'error');
+    }
   }, [toast]);
 
   const handleVoir = useCallback((bienId: string) => {
@@ -147,21 +166,22 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
     setNewEtage('');
   }, []);
 
-  const handleAdd = useCallback(() => {
-    const bien: Bien = {
-      id: crypto.randomUUID(),
-      type: newType,
-      reference: newRef.trim() || crypto.randomUUID().slice(0, 12),
-      surface: newSurface.trim() || '0m2',
-      etage: newEtage.trim() || '0',
-      degrevement: 'en_attente',
-      statut: 'importe',
-    };
-    setBiens((prev) => [bien, ...prev]);
-    setAddOpen(false);
-    resetAddForm();
-    toast('Bien ajouté', 'success');
-  }, [newType, newRef, newSurface, newEtage, resetAddForm, toast]);
+  const handleAdd = useCallback(async () => {
+    try {
+      const bien = await createBien(getActiveOrgId(), lotId, {
+        type: newType,
+        reference: newRef.trim() || crypto.randomUUID().slice(0, 12),
+        surface: newSurface.trim() || '0m2',
+        etage: newEtage.trim() || '0',
+      });
+      setBiens((prev) => [bien, ...prev]);
+      setAddOpen(false);
+      resetAddForm();
+      toast('Bien ajouté', 'success');
+    } catch {
+      toast("Échec de l’ajout du bien", 'error');
+    }
+  }, [lotId, newType, newRef, newSurface, newEtage, resetAddForm, toast]);
 
   const handleImportConfirm = useCallback(() => {
     setImportOpen(false);
@@ -271,7 +291,7 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
             {visible.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-4 py-6 text-center text-ui-text-muted text-sm">
-                  Aucun bien trouvé
+                  {loading ? 'Chargement…' : 'Aucun bien trouvé'}
                 </td>
               </tr>
             ) : (
@@ -389,7 +409,7 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
           <div className="flex flex-col gap-1.5">
             <span className="text-sm font-medium text-ui-text-highlighted">Type</span>
             <div className="grid grid-cols-3 gap-2">
-              {BIEN_TYPES.map((t) => (
+              {BIEN_TYPES.map((t: BienType) => (
                 <button
                   key={t}
                   type="button"

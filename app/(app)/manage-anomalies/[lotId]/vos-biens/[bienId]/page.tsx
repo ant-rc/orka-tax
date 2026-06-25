@@ -1,14 +1,28 @@
+'use client';
+
+import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { MOCK_BIENS } from '@/lib/mock/data';
+import { fetchBienById } from '@/lib/supabase/queries';
+import type { Bien } from '@/lib/domain/property';
 import StatusBadge from '@/components/dashboard/status-badge';
 
-export default async function AnomalieBienDetailPage({
+export default function AnomalieBienDetailPage({
   params,
 }: {
   params: Promise<{ lotId: string; bienId: string }>;
 }) {
-  const { lotId, bienId } = await params;
-  const bien = MOCK_BIENS.find((b) => b.id === bienId);
+  const { lotId, bienId } = use(params);
+  const [bien, setBien] = useState<Bien | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    fetchBienById(bienId)
+      .then((b) => { if (active) setBien(b); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [bienId]);
 
   return (
     <div className="m-6">
@@ -20,7 +34,9 @@ export default async function AnomalieBienDetailPage({
           ← Retour aux anomalies du lot
         </Link>
 
-        {bien ? (
+        {loading ? (
+          <p className="text-sm text-ui-text-muted">Chargement…</p>
+        ) : bien ? (
           <>
             <h1 className="text-xl font-semibold text-ui-text-highlighted mb-6">
               Fiche du bien (Détail anomalie)
