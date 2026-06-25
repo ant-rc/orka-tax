@@ -33,7 +33,7 @@ export default function FilterChips({ fields, filters, onAdd, onRemove, onReset 
   };
 
   return (
-    <div className="px-5 py-3 flex items-center gap-2 flex-wrap text-sm border-b border-ui-border">
+    <div className="bg-ui-bg-elevated border-y border-ui-border mb-4 px-5 py-3 flex items-center gap-2 flex-wrap text-sm">
       {filters.map((filter) => (
         <span
           key={filter.id}
