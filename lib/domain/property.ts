@@ -42,3 +42,11 @@ export interface Bien {
   degrevement: LotStatus;
   statut: BienStatut;
 }
+
+export interface FiscalProfile {
+  id: string;
+  numeroFiscal: string;
+  label: string;
+  depcom: string;
+  commune: string;
+}
