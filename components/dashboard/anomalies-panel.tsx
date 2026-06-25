@@ -13,6 +13,7 @@ import StatusBadge, { statutLabel } from '@/components/dashboard/status-badge';
 import Modal from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import DuplicatesCountAnomalies from './duplicates-count-anomalies';
+import StatsbarAnomalies from './statsbar-anomalies';
 
 const BIEN_FIELDS: FieldDef[] = [
   { key: 'type',      label: 'Type' },
@@ -170,6 +171,7 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
   return (
     
     <div className="bg-white rounded-lg border border-ui-border shadow-sm overflow-hidden flex flex-col">
+      <StatsbarAnomalies/>
       <PanelToolbarAnomalies
         primaryLabel="Ajouter un bien"
         searchValue={search}
