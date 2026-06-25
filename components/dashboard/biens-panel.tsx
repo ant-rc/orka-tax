@@ -108,7 +108,9 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
       setBiens((displayResult.data ?? []).map(dbBienToBien));
     }
 
-    if (!comparableResult.error) {
+    if (comparableResult.error) {
+      toast('Impossible de charger les données comparables', 'error');
+    } else {
       const map = new Map<string, ComparableValues>();
       for (const row of comparableResult.data ?? []) {
         map.set(row.id, {
@@ -733,7 +735,6 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
         onApply={async (ids, patch) => {
           await bulkUpdateBiens(ids, patch);
           await loadBiens();
-          setEditOpen(false);
         }}
 >>>>>>> d87ba27 (feat(dashboard): wire grouped bulk-edit into the biens panel)
       />
