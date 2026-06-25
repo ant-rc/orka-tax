@@ -27,7 +27,39 @@ export interface EstimationResult {
   params: Record<string, number>
 }
 
+export interface VlcInput {
+  surface_m2: number | null
+  ponderation_nature: number
+  categorie: string
+  coeff_entretien: number | null
+  coeff_situation_particuliere: number | null
+  coeff_situation_generale: number | null
+  eau_courante: boolean | null
+  gaz: boolean | null
+  electricite: boolean | null
+  ascenseur: boolean | null
+  nb_wc: number | null
+  nb_baignoires: number | null
+  nb_douches: number | null
+  nb_bidets: number | null
+  nb_eviers: number | null
+}
+
 const n = (v: number | null, d = 0): number => (v == null ? d : v)
+
+/** Valeur locative cadastrale recalculée à partir des caractéristiques du bien. */
+export function computeVlc(b: VlcInput, bareme: Bareme): number {
+  const e = bareme.equivalencesEquipements
+  const sanitaires = n(b.nb_wc) + n(b.nb_baignoires) + n(b.nb_douches) + n(b.nb_bidets) + n(b.nb_eviers)
+  const equivalences =
+    (b.eau_courante ? e.eau : 0) + (b.gaz ? e.gaz : 0) +
+    (b.electricite ? e.electricite : 0) + (b.ascenseur ? e.ascenseur : 0) +
+    sanitaires * e.parSanitaire
+  const surfacePonderee = n(b.surface_m2) * b.ponderation_nature + equivalences
+  const tarif = bareme.tarifParCategorie[b.categorie] ?? 0
+  const coeffs = n(b.coeff_entretien, 1) * n(b.coeff_situation_particuliere, 1) * n(b.coeff_situation_generale, 1)
+  return surfacePonderee * tarif * coeffs
+}
 
 export function computeDegrevement(bien: BienForEstimation, bareme: Bareme): EstimationResult {
   const e = bareme.equivalencesEquipements
