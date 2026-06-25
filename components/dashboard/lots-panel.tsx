@@ -8,6 +8,7 @@ import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
 import { fetchLots, createLot } from '@/lib/supabase/queries';
 import { getActiveOrgId } from '@/lib/supabase/client';
+import { useFiscalProfile } from '@/components/dashboard/fiscal-profile-context';
 import PanelToolbar from '@/components/dashboard/panel-toolbar';
 import FilterChips from '@/components/dashboard/filter-chips';
 import Pagination from '@/components/dashboard/pagination';
@@ -30,6 +31,7 @@ const LOT_ACCESSORS: Record<string, (l: Lot) => string> = {
 export default function LotsPanel() {
   const toast = useToast();
   const { setSelectedCount } = useSelection();
+  const { activeProfileId } = useFiscalProfile();
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
@@ -47,16 +49,20 @@ export default function LotsPanel() {
   const [newName, setNewName] = useState('');
   const [newRef, setNewRef] = useState('');
 
-  // Load the portfolio from Supabase for the active organization.
+  // Load the portfolio for the active fiscal profile; reset view on switch.
   useEffect(() => {
+    if (!activeProfileId) { setLots([]); setLoading(false); return; }
     let active = true;
     setLoading(true);
-    fetchLots(getActiveOrgId())
+    setPage(1);
+    setFilters([]);
+    setSelected(new Set());
+    fetchLots(activeProfileId)
       .then((rows) => { if (active) setLots(rows); })
       .catch(() => { if (active) toast('Impossible de charger les lots', 'error'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [toast]);
+  }, [activeProfileId, toast]);
 
   // Expose the selection count to the BottomBar ("Générer mon rapport").
   useEffect(() => {
@@ -147,9 +153,9 @@ export default function LotsPanel() {
   }, []);
 
   const handleCreate = useCallback(async () => {
-    if (!newName.trim()) return;
+    if (!newName.trim() || !activeProfileId) return;
     try {
-      const lot = await createLot(getActiveOrgId(), {
+      const lot = await createLot(getActiveOrgId(), activeProfileId, {
         name: newName.trim(),
         address: newRef.trim().toUpperCase(),
       });
@@ -161,7 +167,7 @@ export default function LotsPanel() {
     } catch {
       toast('Échec de la création du lot', 'error');
     }
-  }, [newName, newRef, toast]);
+  }, [newName, newRef, activeProfileId, toast]);
 
   const handleImportConfirm = useCallback(() => {
     setImportOpen(false);
