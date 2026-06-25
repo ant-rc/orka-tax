@@ -1,6 +1,8 @@
 // Domain model for the property portfolio (lots & biens).
 // Pure types and presentation constants — data lives in Supabase.
 
+import type { FieldAnomaly } from '@/lib/comparison/compare';
+
 export type LotStatus = 'en_attente';
 
 export interface Lot {
@@ -40,9 +42,10 @@ export interface Bien {
   reference: string;
   surface: string;
   etage: string;
-  degrevement: LotStatus;
   statut: BienStatut;
   hasAnomaly: boolean;
+  anomalies: FieldAnomaly[];
+  degrevement: number;
 }
 
 export interface FiscalProfile {
