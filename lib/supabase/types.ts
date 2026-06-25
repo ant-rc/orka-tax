@@ -58,6 +58,7 @@ export type Database = {
           estimation_params: Json | null
           etage: string | null
           gaz: boolean | null
+          has_anomaly: boolean
           id: string
           invariant_cadastral: string | null
           lot_id: string
@@ -97,6 +98,7 @@ export type Database = {
           estimation_params?: Json | null
           etage?: string | null
           gaz?: boolean | null
+          has_anomaly?: boolean
           id?: string
           invariant_cadastral?: string | null
           lot_id: string
@@ -136,6 +138,7 @@ export type Database = {
           estimation_params?: Json | null
           etage?: string | null
           gaz?: boolean | null
+          has_anomaly?: boolean
           id?: string
           invariant_cadastral?: string | null
           lot_id?: string
