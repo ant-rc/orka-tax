@@ -168,9 +168,12 @@ export default function AnomaliesPanel() {
     toast('Import simulé — pipeline à brancher');
   }, [toast]);
 
+  const montant = biens.reduce((s, b) => s + Math.max(0, b.degrevement), 0);
+  const total = biens.length;
+
   return (
     <div className="flex flex-col">
-      <StatsbarAnomalies/>
+      <StatsbarAnomalies count={biens.length} rate={total ? 100 : 0} montant={montant} />
       <PanelToolbarAnomalies
         searchValue={search}
         onSearchChange={setSearch}
@@ -248,7 +251,8 @@ export default function AnomaliesPanel() {
                   )}
                 </button>
               </th>
-              <th className="text-left px-4 py-3 font-medium whitespace-nowrap">Dégrèvement estimés</th>
+              <th className="text-left px-4 py-3 font-medium whitespace-nowrap">Anomalie</th>
+              <th className="text-left px-4 py-3 font-medium whitespace-nowrap">Dégrèvement ±</th>
               <th className="text-left px-4 py-3 font-medium whitespace-nowrap">
                 <button onClick={() => handleSort('statut')} className="flex items-center gap-1 w-full">
                   Statut
@@ -267,7 +271,7 @@ export default function AnomaliesPanel() {
           <tbody>
             {visible.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-6 text-center text-ui-text-muted text-sm">
+                <td colSpan={9} className="px-4 py-6 text-center text-ui-text-muted text-sm">
                   {loading ? 'Chargement…' : 'Aucun bien trouvé'}
                 </td>
               </tr>
@@ -295,8 +299,15 @@ export default function AnomaliesPanel() {
                   <td className="px-4 py-3 text-ui-text-muted">{bien.surface}</td>
                   <td className="px-4 py-3 text-ui-text-muted">{bien.etage}</td>
                   <td className="px-4 py-3">
-                    <span className="border border-ui-border rounded-full px-2 py-0.5 text-xs text-ui-text-muted">
-                      En attente
+                    {bien.anomalies.length > 0 ? (
+                      <span className="text-xs text-ui-text-muted">
+                        {bien.anomalies.map((a) => a.field).join(', ')}
+                      </span>
+                    ) : <span className="text-xs text-ui-text-dimmed">—</span>}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className={bien.degrevement >= 0 ? 'text-success-txt font-medium' : 'text-error font-medium'}>
+                      {bien.degrevement >= 0 ? '+' : ''}{bien.degrevement.toFixed(2)} €
                     </span>
                   </td>
                   <td className="px-4 py-3">
