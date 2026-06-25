@@ -29,12 +29,14 @@
   /* Accents */
   --color-badge-warning-bg: rgba(239, 177, 0, 0.3);
   --color-badge-warning-text: #8b5c05;
-  --color-danger-text: #c10007;
+  --color-danger-text: #9f0712;
+  --color-warning-bg: #ffe2e2;
   --color-folder: #d8b266;
 
   /* Status colors (bien tunnel) */
   --color-info: #2b7fff;
   --color-success: #00c16a;
+  --color-success-txt: #00a155;
   --color-warning: #efb100;
   --color-error: #fb2c36;
 
@@ -60,3 +62,20 @@ html {
   background-color: var(--color-ui-border-accented);
   border-radius: 999px;
 }
+
+.duplicates-count-bar {
+  background-color: var(--color-warning-bg);
+}
+
+.warning-text {
+  color: var(--color-danger-text);
+}
+
+.success-text {
+  color: var(--color-success-txt);
+}
+
+.stats-bar-anomalies img {
+  width:40px;
+}
+
