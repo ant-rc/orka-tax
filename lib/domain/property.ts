@@ -42,6 +42,7 @@ export interface Bien {
   etage: string;
   degrevement: LotStatus;
   statut: BienStatut;
+  hasAnomaly: boolean;
 }
 
 export interface FiscalProfile {

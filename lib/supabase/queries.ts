@@ -8,10 +8,12 @@ import {
   type FiscalProfile,
   BIEN_TYPES,
 } from '@/lib/domain/property';
+import { simulateStatut } from '@/lib/tunnel/advance';
 
 type LotRow = Database['public']['Tables']['lots']['Row'];
 type BienRow = Database['public']['Tables']['biens']['Row'];
 type FiscalProfileRow = Database['public']['Tables']['fiscal_profiles']['Row'];
+type BienSelectRow = Pick<BienRow, 'id' | 'lot_id' | 'nature' | 'invariant_cadastral' | 'surface_m2' | 'etage' | 'statut' | 'has_anomaly'>;
 
 // ---------------------------------------------------------------------------
 // Mappers — Supabase rows → domain models
@@ -31,9 +33,7 @@ function toBienType(nature: string | null): BienType {
   return BIEN_TYPES.includes(nature as BienType) ? (nature as BienType) : 'Appartement';
 }
 
-function mapBien(
-  row: Pick<BienRow, 'id' | 'lot_id' | 'nature' | 'invariant_cadastral' | 'surface_m2' | 'etage' | 'statut'>,
-): Bien {
+function mapBien(row: BienSelectRow): Bien {
   return {
     id: row.id,
     lotId: row.lot_id,
@@ -43,6 +43,7 @@ function mapBien(
     etage: row.etage ?? '',
     degrevement: 'en_attente',
     statut: (row.statut ?? 'importe') as BienStatut,
+    hasAnomaly: row.has_anomaly ?? false,
   };
 }
 
@@ -119,7 +120,7 @@ export async function createLot(
 // Biens
 // ---------------------------------------------------------------------------
 
-const BIEN_SELECT = 'id, lot_id, nature, invariant_cadastral, surface_m2, etage, statut';
+const BIEN_SELECT = 'id, lot_id, nature, invariant_cadastral, surface_m2, etage, statut, has_anomaly';
 
 export async function fetchBiens(lotId: string): Promise<Bien[]> {
   const supabase = createClient();
@@ -228,4 +229,69 @@ export async function fetchDeclarationCounts(
   if (lotsRes.error) throw lotsRes.error;
   if (biensRes.error) throw biensRes.error;
   return { lots: lotsRes.count ?? 0, biens: biensRes.count ?? 0 };
+}
+
+// ---------------------------------------------------------------------------
+// Simulation
+// ---------------------------------------------------------------------------
+
+export async function simulateBiens(bienIds: string[]): Promise<void> {
+  if (bienIds.length === 0) return;
+  const supabase = createClient();
+
+  const { data, error: selectError } = await supabase
+    .from('biens')
+    .select('id, has_anomaly')
+    .in('id', bienIds);
+  if (selectError) throw selectError;
+
+  const anomalieIds: string[] = [];
+  const resoluIds: string[] = [];
+  for (const row of data ?? []) {
+    const statut = simulateStatut(row.has_anomaly ?? false);
+    if (statut === 'anomalie') {
+      anomalieIds.push(row.id);
+    } else {
+      resoluIds.push(row.id);
+    }
+  }
+
+  if (anomalieIds.length > 0) {
+    const { error } = await supabase
+      .from('biens')
+      .update({ statut: 'anomalie' })
+      .in('id', anomalieIds);
+    if (error) throw error;
+  }
+
+  if (resoluIds.length > 0) {
+    const { error } = await supabase
+      .from('biens')
+      .update({ statut: 'resolu' })
+      .in('id', resoluIds);
+    if (error) throw error;
+  }
+}
+
+export async function fetchBienIdsByLots(lotIds: string[]): Promise<string[]> {
+  if (lotIds.length === 0) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('biens')
+    .select('id')
+    .in('lot_id', lotIds);
+  if (error) throw error;
+  return (data ?? []).map((r) => r.id);
+}
+
+export async function fetchAnomalyBiensByProfile(fiscalProfileId: string): Promise<Bien[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('biens')
+    .select(`${BIEN_SELECT}, lots!inner(fiscal_profile_id)`)
+    .eq('lots.fiscal_profile_id', fiscalProfileId)
+    .in('statut', ['anomalie', 'reclamation', 'remboursement'])
+    .order('created_at');
+  if (error) throw error;
+  return (data ?? []).map((r) => mapBien(r));
 }

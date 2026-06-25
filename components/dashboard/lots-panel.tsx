@@ -16,7 +16,7 @@ import { buildImportedLot, parseImportFile, rowsToBiens } from '@/lib/import/cli
 import { createClient, getActiveOrgId } from '@/lib/supabase/client';
 import type { Database } from '@/lib/supabase/types';
 import {useFiscalProfile} from "@/components/dashboard/fiscal-profile-context";
-import {deleteLot} from "@/lib/supabase/queries";
+import { deleteLot, fetchBienIdsByLots, simulateBiens } from '@/lib/supabase/queries';
 import ConfirmDeleteModal from "@/components/dashboard/confirm-delete-modal";
 import ImportModal from '@/components/ui/import-modal';
 
@@ -59,7 +59,7 @@ const LOT_ACCESSORS: Record<string, (l: Lot) => string> = {
 
 export default function LotsPanel() {
   const toast = useToast();
-  const { setSelectedCount } = useSelection();
+  const { setSelectedCount, registerGenerate } = useSelection();
   const { activeProfileId } = useFiscalProfile();
 
   const [search, setSearch] = useState('');
@@ -109,6 +109,21 @@ export default function LotsPanel() {
 
 // Reset the shared count when leaving this screen.
   useEffect(() => () => setSelectedCount(0), [setSelectedCount]);
+
+  // Register generate action with the selection context.
+  const handleGenerate = useCallback(async () => {
+    const lotIds = [...selected];
+    if (!lotIds.length) return;
+    const ids = await fetchBienIdsByLots(lotIds);
+    await simulateBiens(ids);
+    setSelected(new Set());
+    setSelectedCount(0);
+  }, [selected, setSelectedCount]);
+
+  useEffect(() => {
+    registerGenerate(handleGenerate);
+    return () => registerGenerate(null);
+  }, [handleGenerate, registerGenerate]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();

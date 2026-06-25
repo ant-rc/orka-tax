@@ -2,11 +2,11 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowDownUp, ArrowUp, ArrowDown, ChevronDown, Trash2, ArrowLeft } from 'lucide-react';
+import { ArrowDownUp, ArrowUp, ArrowDown, ChevronDown, Trash2 } from 'lucide-react';
 import { BIEN_TYPE_ICON, type Bien } from '@/lib/domain/property';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
-import { fetchBiensByProfile, fetchFullBiensByProfile, deleteBien } from '@/lib/supabase/queries';
+import { fetchAnomalyBiensByProfile, deleteBien } from '@/lib/supabase/queries';
 import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
 import { useFiscalProfile } from '@/components/dashboard/fiscal-profile-context';
 import PanelToolbarAnomalies from '@/components/dashboard/panel-toolbar-anomalies';
@@ -17,8 +17,6 @@ import Modal from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import DuplicatesCountAnomalies from './duplicates-count-anomalies';
 import StatsbarAnomalies from './statsbar-anomalies';
-import { parseImportFile } from '@/lib/import/client';
-import { diffBiensAgainstImport, type ImportDiffRow } from '@/lib/import/diff';
 
 const BIEN_FIELDS: FieldDef[] = [
   { key: 'type',      label: 'Type' },
@@ -51,20 +49,11 @@ export default function AnomaliesPanel() {
   const [loading, setLoading] = useState(true);
   const [filterAnomalieOnly, setFilterAnomalieOnly] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [importFile, setImportFile] = useState<File | null>(null);
-  const [importing, setImporting] = useState(false);
-  const [importDiffs, setImportDiffs] = useState<ImportDiffRow[] | null>(null);
-  const [diffDetail, setDiffDetail] = useState<ImportDiffRow | null>(null);
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Bien | null>(null);
 
   // Lire les flags sessionStorage au montage.
   useEffect(() => {
-    const raw = sessionStorage.getItem('import_diffs');
-    if (raw) {
-      try { setImportDiffs(JSON.parse(raw) as ImportDiffRow[]); } catch { /* ignore */ }
-      sessionStorage.removeItem('import_diffs');
-    }
     if (sessionStorage.getItem('filter_anomalie') === '1') {
       setFilterAnomalieOnly(true);
       sessionStorage.removeItem('filter_anomalie');
@@ -79,7 +68,7 @@ export default function AnomaliesPanel() {
     setPage(1);
     setFilters([]);
     setSelected(new Set());
-    fetchBiensByProfile(activeProfileId)
+    fetchAnomalyBiensByProfile(activeProfileId)
       .then((rows) => { if (active) setBiens(rows); })
       .catch(() => { if (active) toast('Impossible de charger les biens', 'error'); })
       .finally(() => { if (active) setLoading(false); });
@@ -172,7 +161,7 @@ export default function AnomaliesPanel() {
       await deleteBien(id);
       setBiens((prev) => prev.filter((b) => b.id !== id));
       setSelected((prev) => { const next = new Set(prev); next.delete(id); return next; });
-      toast('Bien supprimé', 'error');
+      toast('Bien supprimé', 'success');
     } catch {
       toast('Échec de la suppression', 'error');
     } finally {
@@ -184,137 +173,9 @@ export default function AnomaliesPanel() {
     router.push(`/lot/${bien.lotId}/vos-biens/${bien.id}`);
   }, [router]);
 
-  const closeImport = useCallback(() => {
-    setImportOpen(false);
-    setImportFile(null);
-  }, []);
-
-  const handleImportConfirm = useCallback(async () => {
-    if (!importFile || !activeProfileId) return;
-    setImporting(true);
-    try {
-      const table = await parseImportFile(importFile);
-      const fullBiens = await fetchFullBiensByProfile(activeProfileId);
-      const diffs = diffBiensAgainstImport(
-        fullBiens as (Record<string, unknown> & { id: string; invariant_cadastral: string | null })[],
-        table,
-      );
-      closeImport();
-      if (diffs.length === 0) {
-        toast('Aucune différence détectée avec les données existantes', 'success');
-      } else {
-        setImportDiffs(diffs);
-        toast(`${diffs.length} anomalie${diffs.length > 1 ? 's' : ''} détectée${diffs.length > 1 ? 's' : ''}`, 'error');
-      }
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Échec de l'import", 'error');
-    } finally {
-      setImporting(false);
-    }
-  }, [importFile, activeProfileId, closeImport, toast]);
-
-  if (importDiffs !== null) {
-    return (
-      <div className="flex flex-col">
-        <div className="flex items-center gap-3 mb-4">
-          <button
-            onClick={() => setImportDiffs(null)}
-            className="flex items-center gap-1.5 text-sm text-ui-text-muted hover:text-ui-text transition-colors"
-          >
-            <ArrowLeft size={16} /> Retour aux anomalies
-          </button>
-          <span className="text-sm font-medium text-ui-text-highlighted">
-            {importDiffs.length} anomalie{importDiffs.length > 1 ? 's' : ''} détectée{importDiffs.length > 1 ? 's' : ''} après comparaison
-          </span>
-        </div>
-
-        <div className="flex-1 overflow-auto bg-white border border-ui-border rounded-lg">
-          <table className="w-full border-separate border-spacing-0">
-            <thead>
-              <tr className="bg-cyprus-900 text-white text-sm">
-                <th className="text-left px-4 py-3 font-medium rounded-tl-lg">Invariant cadastral</th>
-                <th className="text-left px-4 py-3 font-medium">Champs modifiés</th>
-                <th className="text-left px-4 py-3 font-medium">Aperçu des différences</th>
-                <th className="px-4 py-3 w-24 rounded-tr-lg"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {importDiffs.map((diff) => (
-                <tr key={diff.bienId} className="border-b border-ui-border text-sm hover:bg-ui-bg-elevated/50 transition-colors">
-                  <td className="px-4 py-3 font-medium text-cyprus-900">{diff.reference}</td>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex items-center rounded-full bg-orange-100 text-orange-700 px-2.5 py-0.5 text-xs font-medium">
-                      {diff.changedFields.length} champ{diff.changedFields.length > 1 ? 's' : ''}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-ui-text-muted text-xs">
-                    {diff.changedFields.slice(0, 2).map((f) => f.label).join(', ')}
-                    {diff.changedFields.length > 2 && ` +${diff.changedFields.length - 2}`}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end">
-                      <button
-                        onClick={() => setDiffDetail(diff)}
-                        className="bg-vert-400 text-vert-900 rounded-md px-4 py-1.5 text-sm font-medium hover:bg-vert-300 transition-colors"
-                      >
-                        Voir
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Diff detail modal */}
-        <Modal
-          open={!!diffDetail}
-          onClose={() => setDiffDetail(null)}
-          title={`Différences — ${diffDetail?.reference ?? ''}`}
-          footer={
-            <button
-              onClick={() => setDiffDetail(null)}
-              className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors"
-            >
-              Fermer
-            </button>
-          }
-        >
-          {diffDetail && (
-            <div className="overflow-auto">
-              <table className="w-full text-sm border-separate border-spacing-0">
-                <thead>
-                  <tr className="text-xs text-ui-text-muted uppercase">
-                    <th className="text-left px-3 py-2 font-medium">Champ</th>
-                    <th className="text-left px-3 py-2 font-medium">Valeur actuelle</th>
-                    <th className="text-left px-3 py-2 font-medium">Valeur importée</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {diffDetail.changedFields.map((f) => (
-                    <tr key={f.key} className="border-t border-ui-border">
-                      <td className="px-3 py-2.5 font-medium text-ui-text-highlighted">{f.label}</td>
-                      <td className="px-3 py-2.5 text-ui-text-muted line-through">
-                        {f.current == null || f.current === '' ? <span className="italic">vide</span> : String(f.current)}
-                      </td>
-                      <td className="px-3 py-2.5 text-vert-700 font-medium">
-                        {f.incoming == null || f.incoming === '' ? <span className="italic text-ui-text-muted">vide</span> : String(f.incoming)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Modal>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col">
-      <StatsbarAnomalies/>
+      <StatsbarAnomalies />
       <PanelToolbarAnomalies
         searchValue={search}
         onSearchChange={setSearch}
@@ -329,7 +190,7 @@ export default function AnomaliesPanel() {
         onRemove={handleRemoveFilter}
         onReset={handleResetFilters}
       />
-      <DuplicatesCountAnomalies/>
+      <DuplicatesCountAnomalies />
       {filterAnomalieOnly && (
         <div className="flex items-center gap-2 mb-2 px-1 py-2 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-700">
           <span className="flex-1">Affichage filtré : biens avec anomalie détectée uniquement</span>
@@ -341,79 +202,44 @@ export default function AnomaliesPanel() {
           </button>
         </div>
       )}
+
       {/* Table */}
       <div className="flex-1 overflow-auto bg-white border border-ui-border rounded-lg">
         <table className="w-full border-separate border-spacing-0">
           <thead>
             <tr className="bg-cyprus-900 text-white text-sm">
               <th className="px-4 py-3 w-10 rounded-tl-lg">
-                <input
-                  type="checkbox"
-                  className="rounded"
-                  aria-label="Tout sélectionner"
-                  checked={allVisibleSelected}
-                  onChange={toggleAll}
-                />
+                <input type="checkbox" className="rounded" aria-label="Tout sélectionner" checked={allVisibleSelected} onChange={toggleAll} />
               </th>
               <th className="text-left px-4 py-3 font-medium whitespace-nowrap">
                 <button onClick={() => handleSort('type')} className="flex items-center gap-1 w-full">
                   Vos biens
-                  {sort?.key === 'type' ? (
-                    sort.dir === 'asc'
-                      ? <ArrowUp size={14} className="text-vert-400" />
-                      : <ArrowDown size={14} className="text-vert-400" />
-                  ) : (
-                    <ArrowDownUp size={14} className="text-white/60" />
-                  )}
+                  {sort?.key === 'type' ? (sort.dir === 'asc' ? <ArrowUp size={14} className="text-vert-400" /> : <ArrowDown size={14} className="text-vert-400" />) : <ArrowDownUp size={14} className="text-white/60" />}
                 </button>
               </th>
               <th className="text-left px-4 py-3 font-medium whitespace-nowrap">
                 <button onClick={() => handleSort('reference')} className="flex items-center gap-1 w-full">
                   ID
-                  {sort?.key === 'reference' ? (
-                    sort.dir === 'asc'
-                      ? <ArrowUp size={14} className="text-vert-400" />
-                      : <ArrowDown size={14} className="text-vert-400" />
-                  ) : (
-                    <ArrowDownUp size={14} className="text-white/60" />
-                  )}
+                  {sort?.key === 'reference' ? (sort.dir === 'asc' ? <ArrowUp size={14} className="text-vert-400" /> : <ArrowDown size={14} className="text-vert-400" />) : <ArrowDownUp size={14} className="text-white/60" />}
                 </button>
               </th>
               <th className="text-left px-4 py-3 font-medium whitespace-nowrap">
                 <button onClick={() => handleSort('surface')} className="flex items-center gap-1 w-full">
                   Surfaces
-                  {sort?.key === 'surface' ? (
-                    sort.dir === 'asc'
-                      ? <ArrowUp size={14} className="text-vert-400" />
-                      : <ArrowDown size={14} className="text-vert-400" />
-                  ) : (
-                    <ArrowDownUp size={14} className="text-white/60" />
-                  )}
+                  {sort?.key === 'surface' ? (sort.dir === 'asc' ? <ArrowUp size={14} className="text-vert-400" /> : <ArrowDown size={14} className="text-vert-400" />) : <ArrowDownUp size={14} className="text-white/60" />}
                 </button>
               </th>
               <th className="text-left px-4 py-3 font-medium whitespace-nowrap">
                 <button onClick={() => handleSort('etage')} className="flex items-center gap-1 w-full">
                   Étage
-                  {sort?.key === 'etage' ? (
-                    sort.dir === 'asc'
-                      ? <ArrowUp size={14} className="text-vert-400" />
-                      : <ArrowDown size={14} className="text-vert-400" />
-                  ) : (
-                    <ArrowDownUp size={14} className="text-white/60" />
-                  )}
+                  {sort?.key === 'etage' ? (sort.dir === 'asc' ? <ArrowUp size={14} className="text-vert-400" /> : <ArrowDown size={14} className="text-vert-400" />) : <ArrowDownUp size={14} className="text-white/60" />}
                 </button>
               </th>
               <th className="text-left px-4 py-3 font-medium whitespace-nowrap">Dégrèvement estimés</th>
               <th className="text-left px-4 py-3 font-medium whitespace-nowrap">
                 <button onClick={() => handleSort('statut')} className="flex items-center gap-1 w-full">
                   Statut
-                  {sort?.key === 'statut' ? (
-                    sort.dir === 'asc'
-                      ? <ArrowUp size={14} className="text-vert-400" />
-                      : <ArrowDown size={14} className="text-vert-400" />
-                  ) : (
-                    <ArrowDownUp size={14} className="text-white/60" />
-                  )}
+                  {sort?.key === 'statut' ? (sort.dir === 'asc' ? <ArrowUp size={14} className="text-vert-400" /> : <ArrowDown size={14} className="text-vert-400" />) : <ArrowDownUp size={14} className="text-white/60" />}
                 </button>
               </th>
               <th className="px-4 py-3 w-24 rounded-tr-lg"></th>
@@ -423,20 +249,14 @@ export default function AnomaliesPanel() {
             {visible.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-4 py-6 text-center text-ui-text-muted text-sm">
-                  {loading ? 'Chargement…' : 'Aucun bien trouvé'}
+                  {loading ? 'Chargement…' : 'Aucune anomalie trouvée'}
                 </td>
               </tr>
             ) : (
               visible.map((bien) => (
                 <tr key={bien.id} className="border-b border-ui-border text-sm hover:bg-ui-bg-elevated/50 transition-colors">
                   <td className="px-4 py-3">
-                    <input
-                      type="checkbox"
-                      className="rounded"
-                      aria-label={`Sélectionner ${bien.reference}`}
-                      checked={selected.has(bien.id)}
-                      onChange={() => toggleOne(bien.id)}
-                    />
+                    <input type="checkbox" className="rounded" aria-label={`Sélectionner ${bien.reference}`} checked={selected.has(bien.id)} onChange={() => toggleOne(bien.id)} />
                   </td>
                   <td className="px-4 py-3">
                     <span className="flex items-center gap-2">
@@ -450,26 +270,17 @@ export default function AnomaliesPanel() {
                   <td className="px-4 py-3 text-ui-text-muted">{bien.surface}</td>
                   <td className="px-4 py-3 text-ui-text-muted">{bien.etage}</td>
                   <td className="px-4 py-3">
-                    <span className="border border-ui-border rounded-full px-2 py-0.5 text-xs text-ui-text-muted">
-                      En attente
-                    </span>
+                    <span className="border border-ui-border rounded-full px-2 py-0.5 text-xs text-ui-text-muted">En attente</span>
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge statut={bien.statut} />
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => setDeleteTarget(bien)}
-                        className="text-error hover:bg-error/10 rounded-md size-7 flex items-center justify-center transition-colors"
-                        aria-label={`Supprimer ${bien.reference}`}
-                      >
+                      <button onClick={() => setDeleteTarget(bien)} className="text-error hover:bg-error/10 rounded-md size-7 flex items-center justify-center transition-colors" aria-label={`Supprimer ${bien.reference}`}>
                         <Trash2 size={16} />
                       </button>
-                      <button
-                        onClick={() => handleVoir(bien)}
-                        className="bg-vert-400 text-vert-900 rounded-md px-4 py-1.5 text-sm font-medium hover:bg-vert-300 transition-colors"
-                      >
+                      <button onClick={() => handleVoir(bien)} className="bg-vert-400 text-vert-900 rounded-md px-4 py-1.5 text-sm font-medium hover:bg-vert-300 transition-colors">
                         Voir
                       </button>
                     </div>
@@ -484,29 +295,19 @@ export default function AnomaliesPanel() {
       {/* Footer */}
       <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-3 text-xs text-ui-text-muted">
         <span>
-          {filtered.length === 0
-            ? '0'
-            : `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, filtered.length)}`
-          }{' '}
+          {filtered.length === 0 ? '0' : `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, filtered.length)}`}{' '}
           sur {filtered.length} biens
         </span>
         <Pagination page={safePage} totalPages={totalPages} onPageChange={setPage} />
         <div className="relative flex items-center gap-2">
           <span>Affichage des resultats</span>
-          <button
-            onClick={() => setPageSizeOpen((o) => !o)}
-            className="border border-ui-border rounded-md px-2 py-1 flex items-center gap-1 text-ui-text"
-          >
+          <button onClick={() => setPageSizeOpen((o) => !o)} className="border border-ui-border rounded-md px-2 py-1 flex items-center gap-1 text-ui-text">
             {pageSize} <ChevronDown size={12} />
           </button>
           {pageSizeOpen && (
             <div className="absolute right-0 bottom-8 bg-white border border-ui-border rounded-md shadow-md z-10">
               {[10, 25, 50].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => { setPageSize(n); setPage(1); setPageSizeOpen(false); }}
-                  className={`block w-full px-4 py-2 text-sm text-left hover:bg-ui-bg-elevated transition-colors ${pageSize === n ? 'font-semibold text-ui-text-highlighted' : 'text-ui-text'}`}
-                >
+                <button key={n} onClick={() => { setPageSize(n); setPage(1); setPageSizeOpen(false); }} className={`block w-full px-4 py-2 text-sm text-left hover:bg-ui-bg-elevated transition-colors ${pageSize === n ? 'font-semibold text-ui-text-highlighted' : 'text-ui-text'}`}>
                   {n}
                 </button>
               ))}
@@ -515,7 +316,6 @@ export default function AnomaliesPanel() {
         </div>
       </div>
 
-      {/* Confirm delete modal */}
       <ConfirmDeleteModal
         open={!!deleteTarget}
         title={`Supprimer le bien « ${deleteTarget?.reference ?? ''} »`}
@@ -524,38 +324,22 @@ export default function AnomaliesPanel() {
         onConfirm={handleDeleteConfirm}
       />
 
-      {/* Import modal */}
       <Modal
         open={importOpen}
-        onClose={closeImport}
+        onClose={() => setImportOpen(false)}
         title="Importer des biens"
         footer={
           <>
-            <button
-              onClick={closeImport}
-              className="border border-ui-border rounded-md px-4 py-2 text-sm text-ui-text hover:bg-ui-bg-elevated transition-colors"
-            >
+            <button onClick={() => setImportOpen(false)} className="border border-ui-border rounded-md px-4 py-2 text-sm text-ui-text hover:bg-ui-bg-elevated transition-colors">
               Annuler
             </button>
-            <button
-              onClick={handleImportConfirm}
-              disabled={!importFile || importing}
-              className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {importing ? 'Analyse…' : 'Importer'}
+            <button onClick={() => setImportOpen(false)} className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors">
+              Importer
             </button>
           </>
         }
       >
-        <div className="flex flex-col gap-3">
-          <p className="text-sm text-ui-text-muted">Sélectionnez un fichier CSV ou XLSX à comparer avec vos données existantes.</p>
-          <input
-            type="file"
-            accept=".csv,.xlsx"
-            onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
-            className="text-sm text-ui-text file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:border-ui-border file:text-sm file:text-ui-text file:bg-white hover:file:bg-ui-bg-elevated"
-          />
-        </div>
+        <p className="text-sm text-ui-text-muted">L'import se fait depuis la page de gestion des biens d'un lot.</p>
       </Modal>
     </div>
   );

@@ -6,7 +6,6 @@ import { ArrowDownUp, ArrowUp, ArrowDown, ChevronDown, Trash2 } from 'lucide-rea
 import { BIEN_TYPES, BIEN_TYPE_ICON, type Bien, type BienType } from '@/lib/domain/property';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
-import { deleteBien } from '@/lib/supabase/queries';
 import PanelToolbar from '@/components/dashboard/panel-toolbar';
 import FilterChips from '@/components/dashboard/filter-chips';
 import Pagination from '@/components/dashboard/pagination';
@@ -17,6 +16,7 @@ import { useSelection } from '@/components/dashboard/selection-context';
 import { parseImportFile } from '@/lib/import/client';
 import { diffBiensAgainstImport } from '@/lib/import/diff';
 import { createClient, getActiveOrgId } from '@/lib/supabase/client';
+import { deleteBien, simulateBiens } from '@/lib/supabase/queries';
 import { dbBienToBien, BIEN_DISPLAY_COLUMNS } from '@/lib/biens/display';
 import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
 import ImportModal from '@/components/ui/import-modal';
@@ -47,7 +47,7 @@ const BIEN_ACCESSORS: Record<string, (b: Bien) => string> = {
 export default function BiensPanel({ lotId }: { lotId: string }) {
   const toast = useToast();
   const router = useRouter();
-  const { setSelectedCount, setAnomalieCount } = useSelection();
+  const { setSelectedCount, setGenerateReady, registerGenerate, setAnomalieCount } = useSelection();
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
@@ -98,6 +98,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
     }
   }, [lotId, toast]);
 
+  // Load the lot's biens from Supabase.
   useEffect(() => {
     let active = true;
     (async () => {

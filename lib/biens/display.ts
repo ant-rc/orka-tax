@@ -33,6 +33,7 @@ export function dbBienToBien(row: BienDisplayRow): Bien {
     surface: row.surface_m2 != null ? `${row.surface_m2}m2` : '—',
     etage: row.etage ?? '0',
     degrevement: 'en_attente',
+    hasAnomaly: false,
     statut: (row.statut as BienStatut | null) ?? STATUS_TO_STATUT[row.status] ?? 'importe',
   };
 }
