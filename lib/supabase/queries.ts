@@ -351,3 +351,26 @@ export async function bulkUpdateBiens(bienIds: string[], patch: Partial<Comparab
   if (error) throw error;
   await recomputeBiens(bienIds);
 }
+
+// ---------------------------------------------------------------------------
+// Réclamation
+// ---------------------------------------------------------------------------
+
+export async function createReclamation(lotId: string): Promise<{ total: number }> {
+  const supabase = createClient();
+  const { data: lot, error: lotErr } = await supabase
+    .from('lots').select('org_id, fiscal_profile_id').eq('id', lotId).single();
+  if (lotErr) throw lotErr;
+  const { data: biens, error: bErr } = await supabase
+    .from('biens').select('degrevement_estime').eq('lot_id', lotId);
+  if (bErr) throw bErr;
+  const total = Math.round((biens ?? []).reduce((s, b) => s + Number(b.degrevement_estime ?? 0), 0) * 100) / 100;
+  const { error: insErr } = await supabase.from('reclamations').insert({
+    org_id: lot.org_id, fiscal_profile_id: lot.fiscal_profile_id, lot_id: lotId, total_degrevement: total,
+  });
+  if (insErr) throw insErr;
+  const { error: upErr } = await supabase.from('biens')
+    .update({ statut: 'reclamation' }).eq('lot_id', lotId).eq('statut', 'anomalie');
+  if (upErr) throw upErr;
+  return { total };
+}

@@ -257,13 +257,8 @@ export default function AnomaliesPanel() {
           <tbody>
             {visible.length === 0 ? (
               <tr>
-<<<<<<< HEAD
-                <td colSpan={8} className="px-4 py-6 text-center text-ui-text-muted text-sm">
-                  {loading ? 'Chargement…' : 'Aucune anomalie trouvée'}
-=======
                 <td colSpan={9} className="px-4 py-6 text-center text-ui-text-muted text-sm">
-                  {loading ? 'Chargement…' : 'Aucun bien trouvé'}
->>>>>>> 0a701a8 (feat(dashboard): show per-bien anomaly and signed amount, wire statsbar)
+                  {loading ? 'Chargement…' : 'Aucune anomalie trouvée'}
                 </td>
               </tr>
             ) : (
@@ -284,9 +279,6 @@ export default function AnomaliesPanel() {
                   <td className="px-4 py-3 text-ui-text-muted">{bien.surface}</td>
                   <td className="px-4 py-3 text-ui-text-muted">{bien.etage}</td>
                   <td className="px-4 py-3">
-<<<<<<< HEAD
-                    <span className="border border-ui-border rounded-full px-2 py-0.5 text-xs text-ui-text-muted">En attente</span>
-=======
                     {bien.anomalies.length > 0 ? (
                       <span className="text-xs text-ui-text-muted">
                         {bien.anomalies.map((a) => a.field).join(', ')}
@@ -297,7 +289,6 @@ export default function AnomaliesPanel() {
                     <span className={bien.degrevement >= 0 ? 'text-success-txt font-medium' : 'text-error font-medium'}>
                       {bien.degrevement >= 0 ? '+' : ''}{bien.degrevement.toFixed(2)} €
                     </span>
->>>>>>> 0a701a8 (feat(dashboard): show per-bien anomaly and signed amount, wire statsbar)
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge statut={bien.statut} />
