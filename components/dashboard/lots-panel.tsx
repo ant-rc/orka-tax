@@ -214,7 +214,7 @@ export default function LotsPanel() {
       <div className="flex-1 overflow-auto">
         <table className="w-full border-separate border-spacing-0">
           <thead>
-            <tr className="bg-cyprus-950 text-white text-sm">
+            <tr className="bg-cyprus-900 text-white text-sm">
               <th className="px-4 py-3 w-10 rounded-tl-lg">
                 <input
                   type="checkbox"
