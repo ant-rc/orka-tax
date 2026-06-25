@@ -88,7 +88,7 @@ export default function LotsPanel() {
       const { data, error } = await supabase
           .from('lots')
           .select('id, name, description, biens(rue, ville)')
-          .eq('org_id', getActiveOrgId())
+          .eq('fiscal_profile_id', activeProfileId)
           .order('created_at', { ascending: false });
       if (!active) return;
       if (error) {
@@ -204,13 +204,14 @@ export default function LotsPanel() {
   }, []);
 
   const handleCreate = useCallback(async () => {
-    if (!newName.trim()) return;
+    if (!newName.trim() || !activeProfileId) return;
 
     const supabase = createClient();
     const { data, error } = await supabase
         .from('lots')
         .insert({
           org_id: getActiveOrgId(),
+          fiscal_profile_id: activeProfileId,
           name: newName.trim(),
           description: newRef.trim() || null,
         })
@@ -227,7 +228,7 @@ export default function LotsPanel() {
     setNewName('');
     setNewRef('');
     toast('Lot créé', 'success');
-  }, [newName, newRef, toast]);
+  }, [newName, newRef, activeProfileId, toast]);
 
   const closeImport = useCallback(() => {
     setImportOpen(false);
@@ -235,7 +236,7 @@ export default function LotsPanel() {
   }, []);
 
   const handleImportConfirm = useCallback(async () => {
-    if (!importFile) return;
+    if (!importFile || !activeProfileId) return;
     setImporting(true);
     try {
       const table = await parseImportFile(importFile);
@@ -247,6 +248,7 @@ export default function LotsPanel() {
         .from('lots')
         .insert({
           org_id: getActiveOrgId(),
+          fiscal_profile_id: activeProfileId,
           name: imported.name,
           description: [imported.rue, imported.ville].filter(Boolean).join(' · ') || null,
         })
@@ -282,7 +284,7 @@ export default function LotsPanel() {
     } finally {
       setImporting(false);
     }
-  }, [importFile, closeImport, toast]);
+  }, [importFile, activeProfileId, closeImport, toast]);
 
   const handleDeleteConfirm = useCallback(async () => {
     if (!deleteTarget) return;
