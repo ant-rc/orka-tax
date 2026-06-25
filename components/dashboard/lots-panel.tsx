@@ -3,9 +3,11 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowDownUp, ArrowUp, ArrowDown, ChevronRight, ChevronDown } from 'lucide-react';
-import { MOCK_LOTS, type Lot } from '@/lib/mock/data';
+import { type Lot } from '@/lib/domain/property';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
+import { fetchLots, createLot } from '@/lib/supabase/queries';
+import { getActiveOrgId } from '@/lib/supabase/client';
 import PanelToolbar from '@/components/dashboard/panel-toolbar';
 import FilterChips from '@/components/dashboard/filter-chips';
 import Pagination from '@/components/dashboard/pagination';
@@ -35,7 +37,8 @@ export default function LotsPanel() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
-  const [lots, setLots] = useState<Lot[]>(MOCK_LOTS);
+  const [lots, setLots] = useState<Lot[]>([]);
+  const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
@@ -43,6 +46,17 @@ export default function LotsPanel() {
   // Create form state
   const [newName, setNewName] = useState('');
   const [newRef, setNewRef] = useState('');
+
+  // Load the portfolio from Supabase for the active organization.
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    fetchLots(getActiveOrgId())
+      .then((rows) => { if (active) setLots(rows); })
+      .catch(() => { if (active) toast('Impossible de charger les lots', 'error'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [toast]);
 
   // Expose the selection count to the BottomBar ("Générer mon rapport").
   useEffect(() => {
@@ -132,20 +146,21 @@ export default function LotsPanel() {
     });
   }, []);
 
-  const handleCreate = useCallback(() => {
+  const handleCreate = useCallback(async () => {
     if (!newName.trim()) return;
-    const lot: Lot = {
-      id: crypto.randomUUID(),
-      name: newName.trim(),
-      address: newRef.trim() || '',
-      city: '',
-      status: 'en_attente',
-    };
-    setLots((prev) => [lot, ...prev]);
-    setCreateOpen(false);
-    setNewName('');
-    setNewRef('');
-    toast('Lot créé', 'success');
+    try {
+      const lot = await createLot(getActiveOrgId(), {
+        name: newName.trim(),
+        address: newRef.trim().toUpperCase(),
+      });
+      setLots((prev) => [lot, ...prev]);
+      setCreateOpen(false);
+      setNewName('');
+      setNewRef('');
+      toast('Lot créé', 'success');
+    } catch {
+      toast('Échec de la création du lot', 'error');
+    }
   }, [newName, newRef, toast]);
 
   const handleImportConfirm = useCallback(() => {
@@ -239,7 +254,7 @@ export default function LotsPanel() {
             {visible.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-6 text-center text-ui-text-muted text-sm">
-                  Aucun lot trouvé
+                  {loading ? 'Chargement…' : 'Aucun lot trouvé'}
                 </td>
               </tr>
             ) : (

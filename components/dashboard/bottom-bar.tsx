@@ -1,9 +1,11 @@
 'use client';
 
 import { Save } from 'lucide-react';
-import { MOCK_LAST_MODIFIED } from '@/lib/mock/data';
 import { useToast } from '@/components/ui/toast';
 import { useSelection } from '@/components/dashboard/selection-context';
+
+// Présentationnel — la date de dernière modif n'est pas encore suivie côté données.
+const LAST_MODIFIED_PLACEHOLDER = '09/12/2026';
 
 export default function BottomBar() {
   const toast = useToast();
@@ -13,7 +15,7 @@ export default function BottomBar() {
   return (
     <footer className="bg-white border-t border-ui-border px-8 py-4 flex items-center justify-between shrink-0">
       <span className="text-sm text-ui-text-muted">
-        Dernière modification : {MOCK_LAST_MODIFIED}
+        Dernière modification : {LAST_MODIFIED_PLACEHOLDER}
       </span>
       <div className="flex items-center gap-3">
         <button

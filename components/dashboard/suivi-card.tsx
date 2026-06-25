@@ -1,8 +1,25 @@
 'use client';
 
 import { Eye, Download } from 'lucide-react';
-import { MOCK_SUIVI } from '@/lib/mock/data';
 import { useToast } from '@/components/ui/toast';
+
+interface SuiviItem {
+  id: string;
+  date: string;
+  label: string;
+  hasDownload: boolean;
+}
+
+// Présentationnel — le suivi documentaire n'est pas encore branché côté données.
+const SUIVI_PLACEHOLDER: SuiviItem[] = [
+  { id: '1', date: '17/07/2026', label: 'lorem ipsum', hasDownload: false },
+  { id: '2', date: '17/07/2026', label: 'lorem ipsum', hasDownload: false },
+  { id: '3', date: '17/07/2026', label: 'lorem ipsum', hasDownload: false },
+  { id: '4', date: '17/07/2026', label: 'lorem ipsum', hasDownload: false },
+  { id: '5', date: '17/07/2026', label: 'lorem ipsum', hasDownload: true },
+  { id: '6', date: '17/07/2026', label: 'lorem ipsum', hasDownload: false },
+  { id: '7', date: '17/07/2026', label: 'lorem ipsum', hasDownload: false },
+];
 
 export default function SuiviCard() {
   const toast = useToast();
@@ -14,8 +31,8 @@ export default function SuiviCard() {
         <h2 className="text-lg font-semibold text-ui-text-highlighted">Suivi et documents utiles</h2>
       </div>
       <div className="px-3 pb-3 max-h-[320px] overflow-y-auto scrollbar-thin flex flex-col gap-2">
-        {MOCK_SUIVI.map((item, index) => {
-          const isLast = index === MOCK_SUIVI.length - 1;
+        {SUIVI_PLACEHOLDER.map((item, index) => {
+          const isLast = index === SUIVI_PLACEHOLDER.length - 1;
           return (
             <div
               key={item.id}

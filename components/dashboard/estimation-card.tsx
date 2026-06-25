@@ -1,4 +1,5 @@
-import { MOCK_ESTIMATION } from '@/lib/mock/data';
+// Présentationnel — l'estimation agrégée n'est pas encore calculée côté données.
+const ESTIMATION_PLACEHOLDER = '879 €';
 
 export default function EstimationCard() {
   return (
@@ -8,7 +9,7 @@ export default function EstimationCard() {
         <span className="text-base font-medium text-ui-text-highlighted">Estimation taxes foncières</span>
       </div>
       <span className="bg-red-50 text-danger-text rounded-md px-2.5 py-1 text-sm font-medium">
-        {MOCK_ESTIMATION}
+        {ESTIMATION_PLACEHOLDER}
       </span>
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Hash, Home, Building2 } from 'lucide-react';
-import { createClient, DEMO_ORG_ID } from '@/lib/supabase/client';
+import { createClient, getActiveOrgId } from '@/lib/supabase/client';
 
 interface OrgSummary {
   name: string;
@@ -18,10 +18,11 @@ export default function DeclarationCard() {
     let active = true;
     (async () => {
       const supabase = createClient();
+      const orgId = getActiveOrgId();
       const [orgRes, lotsRes, biensRes] = await Promise.all([
-        supabase.from('organizations').select('name, company_id').eq('id', DEMO_ORG_ID).single(),
-        supabase.from('lots').select('*', { count: 'exact', head: true }).eq('org_id', DEMO_ORG_ID),
-        supabase.from('biens').select('*', { count: 'exact', head: true }).eq('org_id', DEMO_ORG_ID),
+        supabase.from('organizations').select('name, company_id').eq('id', orgId).single(),
+        supabase.from('lots').select('*', { count: 'exact', head: true }).eq('org_id', orgId),
+        supabase.from('biens').select('*', { count: 'exact', head: true }).eq('org_id', orgId),
       ]);
       if (!active) return;
       setData({

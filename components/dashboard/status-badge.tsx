@@ -1,4 +1,4 @@
-import type { BienStatut } from '@/lib/mock/data';
+import type { BienStatut } from '@/lib/domain/property';
 
 const STATUT_CONFIG: Record<BienStatut, { label: string; className: string }> = {
   importe: { label: 'Importé', className: 'text-ui-text-muted' },

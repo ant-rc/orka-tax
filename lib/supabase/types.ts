@@ -74,6 +74,7 @@ export type Database = {
           ponderation_nature: number | null
           rue: string | null
           status: Database["public"]["Enums"]["bien_status"]
+          statut: Database["public"]["Enums"]["bien_statut"]
           surface_m2: number | null
           updated_at: string
           ville: string | null
@@ -112,6 +113,7 @@ export type Database = {
           ponderation_nature?: number | null
           rue?: string | null
           status?: Database["public"]["Enums"]["bien_status"]
+          statut?: Database["public"]["Enums"]["bien_statut"]
           surface_m2?: number | null
           updated_at?: string
           ville?: string | null
@@ -150,6 +152,7 @@ export type Database = {
           ponderation_nature?: number | null
           rue?: string | null
           status?: Database["public"]["Enums"]["bien_status"]
+          statut?: Database["public"]["Enums"]["bien_statut"]
           surface_m2?: number | null
           updated_at?: string
           ville?: string | null
@@ -409,6 +412,14 @@ export type Database = {
     }
     Enums: {
       bien_status: "draft" | "validated" | "archived"
+      bien_statut:
+        | "importe"
+        | "rapprochement"
+        | "resolu"
+        | "analyse"
+        | "anomalie"
+        | "reclamation"
+        | "remboursement"
       import_status: "pending" | "processing" | "done" | "error"
       membership_role: "owner" | "admin" | "member"
     }
@@ -542,6 +553,15 @@ export const Constants = {
   public: {
     Enums: {
       bien_status: ["draft", "validated", "archived"],
+      bien_statut: [
+        "importe",
+        "rapprochement",
+        "resolu",
+        "analyse",
+        "anomalie",
+        "reclamation",
+        "remboursement",
+      ],
       import_status: ["pending", "processing", "done", "error"],
       membership_role: ["owner", "admin", "member"],
     },
