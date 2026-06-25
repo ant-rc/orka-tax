@@ -2,7 +2,16 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient, DEMO_ORG_ID } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/client';
+
+// Demo logins shown as hints — the actual match is resolved against Supabase.
+const DEMO_ACCOUNTS = [
+  { id: '552 081 317', name: 'Cabinet Démo Patrimoine' },
+  { id: '843 119 204', name: 'Foncière Atlantique' },
+];
+
+// Compare company IDs loosely (ignore spaces / punctuation / case).
+const normalizeId = (value: string) => value.replace(/[^a-z0-9]/gi, '').toLowerCase();
 
 export default function IdentificationPage() {
   const router = useRouter();
@@ -10,6 +19,7 @@ export default function IdentificationPage() {
   const [companyId, setCompanyId] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const canSubmit = companyId.trim() !== '' && companyName.trim() !== '';
 
@@ -17,17 +27,40 @@ export default function IdentificationPage() {
     e.preventDefault();
     if (!canSubmit || submitting) return;
     setSubmitting(true);
-    const name = companyName.trim();
-    const id = companyId.trim();
-    // Persist the company identity onto the demo organization (single-tenant demo).
+    setError(null);
+
     try {
       const supabase = createClient();
-      await supabase.from('organizations').update({ name, company_id: id }).eq('id', DEMO_ORG_ID);
+      const { data: orgs } = await supabase
+        .from('organizations')
+        .select('id, name, company_id');
+
+      const entered = normalizeId(companyId);
+      const match = orgs?.find(
+        (o) => o.company_id && normalizeId(o.company_id) === entered,
+      );
+
+      if (!match) {
+        setError('Aucune entreprise ne correspond à ce numéro ID.');
+        setSubmitting(false);
+        return;
+      }
+
+      localStorage.setItem(
+        'orka_org',
+        JSON.stringify({ id: match.id, name: match.name, companyId: match.company_id }),
+      );
+      router.push('/dashboard');
     } catch {
-      // Demo: ignore write errors and continue to the dashboard.
+      setError('Connexion impossible. Réessayez.');
+      setSubmitting(false);
     }
-    localStorage.setItem('orka_org', JSON.stringify({ id: DEMO_ORG_ID, name, companyId: id }));
-    router.push('/dashboard');
+  }
+
+  function prefill(account: { id: string; name: string }) {
+    setCompanyId(account.id);
+    setCompanyName(account.name);
+    setError(null);
   }
 
   return (
@@ -59,7 +92,7 @@ export default function IdentificationPage() {
               id="company-id"
               type="text"
               value={companyId}
-              onChange={(e) => setCompanyId(e.target.value)}
+              onChange={(e) => { setCompanyId(e.target.value); setError(null); }}
               placeholder="Ex. 552 081 317"
               className="border border-ui-border rounded-md px-3 py-2 text-sm text-ui-text placeholder:text-ui-text-dimmed focus:outline-none focus:border-ui-border-accented"
             />
@@ -82,6 +115,8 @@ export default function IdentificationPage() {
             />
           </div>
 
+          {error && <p className="text-sm text-error">{error}</p>}
+
           <button
             type="submit"
             disabled={!canSubmit || submitting}
@@ -90,6 +125,24 @@ export default function IdentificationPage() {
             {submitting ? 'Connexion…' : 'Accéder à mon espace'}
           </button>
         </form>
+
+        {/* Demo accounts */}
+        <div className="mt-8 border-t border-ui-border pt-4">
+          <p className="text-xs font-medium text-ui-text-muted mb-2">Comptes de démonstration</p>
+          <div className="flex flex-col gap-2">
+            {DEMO_ACCOUNTS.map((account) => (
+              <button
+                key={account.id}
+                type="button"
+                onClick={() => prefill(account)}
+                className="flex items-center justify-between gap-3 rounded-md border border-ui-border px-3 py-2 text-left text-sm hover:bg-ui-bg-elevated transition-colors"
+              >
+                <span className="font-medium text-ui-text-highlighted">{account.name}</span>
+                <span className="text-ui-text-muted">{account.id}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
