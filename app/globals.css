@@ -41,6 +41,7 @@
   --color-success-txt: #00a155;
   --color-warning: #efb100;
   --color-error: #fb2c36;
+  --color-border-warning: #e7000b;
 
   --radius-md: 6px;
   --radius-sm: 4px;
@@ -67,6 +68,8 @@ html {
 
 .duplicates-count-bar {
   background-color: var(--color-warning-bg);
+  border-radius: 0 16px 16px 0;
+  border-left: var(--color-border-warning) 3px solid;
 }
 
 .warning-text {
@@ -83,4 +86,8 @@ html {
 
 .filter-color {
   background-color: var(--color-filter);
+}
+
+.see-and-resolve:hover {
+  color: rgb(178, 103, 103);
 }
