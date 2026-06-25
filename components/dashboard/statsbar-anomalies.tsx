@@ -20,7 +20,10 @@ export default function StatsbarAnomalies({
           <img src="/assets/chart.svg" className=""/>
           <span className="ms-2">Taux de qualification</span>
         </div>
-        <span className="ms-2">...</span>
+        <span>
+          <span className="ms-2 me-1">...</span>
+          <span>%</span>
+        </span>
       </div>
       
       <div className="flex justify-between flex items-center">
@@ -28,7 +31,11 @@ export default function StatsbarAnomalies({
           <img src="/assets/argent.webp" className=""/>
           <span className="ms-2">Montant récupérable restant</span>
         </div>
-        <span className="ms-2 success-text">...</span>
+        <span className="success-text">
+          <span className="ms-2 me-1">...</span>
+          <span>€</span>
+        </span>
+        
       </div>
 
     </div>
