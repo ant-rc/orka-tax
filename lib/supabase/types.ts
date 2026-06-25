@@ -41,6 +41,7 @@ export type Database = {
     Tables: {
       biens: {
         Row: {
+          anomalies: Json
           ascenseur: boolean | null
           batch_id: string | null
           categorie: string | null
@@ -57,6 +58,7 @@ export type Database = {
           estimation_computed_at: string | null
           estimation_params: Json | null
           etage: string | null
+          fisc_snapshot: Json | null
           gaz: boolean | null
           has_anomaly: boolean
           id: string
@@ -81,6 +83,7 @@ export type Database = {
           ville: string | null
         }
         Insert: {
+          anomalies?: Json
           ascenseur?: boolean | null
           batch_id?: string | null
           categorie?: string | null
@@ -97,6 +100,7 @@ export type Database = {
           estimation_computed_at?: string | null
           estimation_params?: Json | null
           etage?: string | null
+          fisc_snapshot?: Json | null
           gaz?: boolean | null
           has_anomaly?: boolean
           id?: string
@@ -121,6 +125,7 @@ export type Database = {
           ville?: string | null
         }
         Update: {
+          anomalies?: Json
           ascenseur?: boolean | null
           batch_id?: string | null
           categorie?: string | null
@@ -137,6 +142,7 @@ export type Database = {
           estimation_computed_at?: string | null
           estimation_params?: Json | null
           etage?: string | null
+          fisc_snapshot?: Json | null
           gaz?: boolean | null
           has_anomaly?: boolean
           id?: string
