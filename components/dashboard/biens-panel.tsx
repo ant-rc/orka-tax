@@ -6,7 +6,9 @@ import { ArrowDownUp, ArrowUp, ArrowDown, ChevronDown, Trash2 } from 'lucide-rea
 import { BIEN_TYPES, BIEN_TYPE_ICON, type Bien, type BienType } from '@/lib/domain/property';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
-import { deleteBien, simulateBiens } from '@/lib/supabase/queries';
+import { deleteBien, simulateBiens, bulkUpdateBiens, recomputeBiens } from '@/lib/supabase/queries';
+import BulkEditModal, { type BulkEditBien } from '@/components/dashboard/bulk-edit-modal';
+import { bienSignature, type ComparableValues } from '@/lib/domain/comparable';
 import PanelToolbar from '@/components/dashboard/panel-toolbar';
 import FilterChips from '@/components/dashboard/filter-chips';
 import Pagination from '@/components/dashboard/pagination';
@@ -64,6 +66,8 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
   const [importing, setImporting] = useState(false);
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Bien | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [comparableMap, setComparableMap] = useState<Map<string, ComparableValues>>(new Map());
 
   // Add form state
   const [newType, setNewType] = useState<BienType>('Appartement');
@@ -82,16 +86,42 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
   // Charge les biens du lot depuis Supabase.
   const loadBiens = useCallback(async () => {
     const supabase = createClient();
-    const { data, error } = await supabase
-      .from('biens')
-      .select(BIEN_DISPLAY_COLUMNS)
-      .eq('lot_id', lotId)
-      .order('created_at', { ascending: true });
+    const [displayResult, comparableResult] = await Promise.all([
+      supabase
+        .from('biens')
+        .select(BIEN_DISPLAY_COLUMNS)
+        .eq('lot_id', lotId)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('biens')
+        .select('id, surface_m2, nb_pieces, nb_wc, nb_baignoires, nb_douches, nb_bidets, nb_eviers, ascenseur, eau_courante, gaz, electricite')
+        .eq('lot_id', lotId),
+    ]);
 
-    if (error) {
+    if (displayResult.error) {
       toast('Impossible de charger les biens', 'error');
     } else {
-      setBiens((data ?? []).map(dbBienToBien));
+      setBiens((displayResult.data ?? []).map(dbBienToBien));
+    }
+
+    if (!comparableResult.error) {
+      const map = new Map<string, ComparableValues>();
+      for (const row of comparableResult.data ?? []) {
+        map.set(row.id, {
+          surface_m2: row.surface_m2 ?? null,
+          nb_pieces: row.nb_pieces ?? null,
+          nb_wc: row.nb_wc ?? null,
+          nb_baignoires: row.nb_baignoires ?? null,
+          nb_douches: row.nb_douches ?? null,
+          nb_bidets: row.nb_bidets ?? null,
+          nb_eviers: row.nb_eviers ?? null,
+          ascenseur: row.ascenseur ?? null,
+          eau_courante: row.eau_courante ?? null,
+          gaz: row.gaz ?? null,
+          electricite: row.electricite ?? null,
+        });
+      }
+      setComparableMap(map);
     }
   }, [lotId, toast]);
 
@@ -142,6 +172,20 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
       return sort.dir === 'asc' ? cmp : -cmp;
     });
   }, [filtered, sort]);
+
+  const bulkBiens = useMemo<BulkEditBien[]>(() => biens.map((b) => {
+    const values = comparableMap.get(b.id) ?? {
+      surface_m2: null, nb_pieces: null, nb_wc: null, nb_baignoires: null,
+      nb_douches: null, nb_bidets: null, nb_eviers: null,
+      ascenseur: null, eau_courante: null, gaz: null, electricite: null,
+    };
+    return {
+      id: b.id,
+      label: `${b.type} ${b.surface}`,
+      values,
+      signature: bienSignature(values),
+    };
+  }), [biens, comparableMap]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -287,6 +331,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
       let updated = 0;
       let unchanged = 0;
       let inserted = 0;
+      const affectedIds: string[] = [];
       const toInsert: BienInsert[] = [];
       for (const rec of records) {
         const key = normalizeInvariant(rec.invariant_cadastral);
@@ -312,7 +357,10 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
             .eq('id', existing.id as string)
             .select('id');
           if (error) throw new Error(error.message);
-          if (data && data.length > 0) updated++;
+          if (data && data.length > 0) {
+            updated++;
+            affectedIds.push(existing.id as string);
+          }
         } else {
           // Nouveau bien : pas de correspondance dans la liste → on l'ajoute au lot.
           toInsert.push({ ...rec, org_id: getActiveOrgId(), lot_id: lotId } as BienInsert);
@@ -323,6 +371,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
         const { data, error } = await supabase.from('biens').insert(toInsert).select('id');
         if (error) throw new Error(error.message);
         inserted = data?.length ?? 0;
+        for (const row of data ?? []) affectedIds.push(row.id);
       }
 
       // Des biens devaient changer mais aucune écriture n'a abouti → RLS probable.
@@ -330,6 +379,10 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
         throw new Error(
           "Écriture refusée par la base (RLS). Applique la migration 0004 : « demo public write » sur la table biens.",
         );
+      }
+
+      if (affectedIds.length > 0) {
+        await recomputeBiens(affectedIds);
       }
 
       await loadBiens();
@@ -347,15 +400,25 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
 
   return (
     <div className="flex flex-col">
-      <PanelToolbar
-        primaryLabel="Ajouter un bien"
-        searchValue={search}
-        onSearchChange={setSearch}
-        onPrimary={() => setAddOpen(true)}
-        onImport={() => setImportOpen(true)}
-        count={filtered.length}
-        total={biens.length}
-      />
+      <div className="flex items-center gap-2 pr-5">
+        <div className="flex-1">
+          <PanelToolbar
+            primaryLabel="Ajouter un bien"
+            searchValue={search}
+            onSearchChange={setSearch}
+            onPrimary={() => setAddOpen(true)}
+            onImport={() => setImportOpen(true)}
+            count={filtered.length}
+            total={biens.length}
+          />
+        </div>
+        <button
+          onClick={() => setEditOpen(true)}
+          className="border border-ui-border rounded-md px-3 py-2 text-sm flex items-center gap-1.5 text-ui-text hover:bg-ui-bg-elevated transition-colors shrink-0"
+        >
+          Édition
+        </button>
+      </div>
       <FilterChips
         fields={BIEN_FIELDS}
         filters={filters}
@@ -664,6 +727,18 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
           />
         </div>
       </Modal>
+
+      {/* Bulk edit modal */}
+      <BulkEditModal
+        open={editOpen}
+        biens={bulkBiens}
+        onClose={() => setEditOpen(false)}
+        onApply={async (ids, patch) => {
+          await bulkUpdateBiens(ids, patch);
+          await loadBiens();
+          setEditOpen(false);
+        }}
+      />
     </div>
   );
 }
