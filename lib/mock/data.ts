@@ -80,12 +80,17 @@ const LOT_SEEDS: LotSeed[] = [
   { cp: '06500', slug: 'MENTON',      street: '14 avenue de la Madone',  cityLabel: 'Menton - 06500' },
 ];
 
+// City label may carry a postal-code suffix ("Paris - 75011"); keep the city name only.
+function cityName(label: string): string {
+  return label.split(' - ')[0].trim().toUpperCase();
+}
+
 function generateLots(): Lot[] {
   return LOT_SEEDS.map((seed, idx) => ({
     id: String(idx + 1),
     name: `${seed.cp}-${seed.slug}`,
-    address: seed.street,
-    city: seed.cityLabel,
+    address: seed.street.toUpperCase(),
+    city: cityName(seed.cityLabel),
     status: 'en_attente' as LotStatus,
   }));
 }

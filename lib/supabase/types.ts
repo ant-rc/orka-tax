@@ -273,6 +273,8 @@ export type Database = {
       }
       lots: {
         Row: {
+          address: string | null
+          city: string | null
           created_at: string
           description: string | null
           id: string
@@ -281,6 +283,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          address?: string | null
+          city?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -289,6 +293,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          address?: string | null
+          city?: string | null
           created_at?: string
           description?: string | null
           id?: string
