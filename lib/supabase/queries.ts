@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/client';
-import type { Database } from '@/lib/supabase/types';
+import type { Database, Json } from '@/lib/supabase/types';
 import {
   type Lot,
   type Bien,
@@ -9,6 +9,8 @@ import {
   BIEN_TYPES,
 } from '@/lib/domain/property';
 import { simulateStatut } from '@/lib/tunnel/advance';
+import { evaluateBien } from '@/lib/comparison/evaluate';
+import type { ComparableValues } from '@/lib/domain/comparable';
 
 type LotRow = Database['public']['Tables']['lots']['Row'];
 type BienRow = Database['public']['Tables']['biens']['Row'];
@@ -41,9 +43,10 @@ function mapBien(row: BienSelectRow): Bien {
     reference: row.invariant_cadastral ?? '',
     surface: row.surface_m2 != null ? `${row.surface_m2}m2` : '',
     etage: row.etage ?? '',
-    degrevement: 'en_attente',
     statut: (row.statut ?? 'importe') as BienStatut,
     hasAnomaly: row.has_anomaly ?? false,
+    anomalies: [],
+    degrevement: 0,
   };
 }
 
@@ -294,4 +297,57 @@ export async function fetchAnomalyBiensByProfile(fiscalProfileId: string): Promi
     .order('created_at');
   if (error) throw error;
   return (data ?? []).map((r) => mapBien(r));
+}
+
+// ---------------------------------------------------------------------------
+// Evaluation / recompute
+// ---------------------------------------------------------------------------
+
+const COMPARABLE_KEYS = [
+  'surface_m2', 'nb_pieces', 'nb_wc', 'nb_baignoires', 'nb_douches',
+  'nb_bidets', 'nb_eviers', 'ascenseur', 'eau_courante', 'gaz', 'electricite',
+] as const;
+
+function pickComparable(row: Record<string, unknown>): ComparableValues {
+  const out = {} as Record<string, unknown>;
+  for (const k of COMPARABLE_KEYS) out[k] = row[k] ?? null;
+  return out as unknown as ComparableValues;
+}
+
+export async function recomputeBiens(bienIds: string[]): Promise<void> {
+  if (bienIds.length === 0) return;
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('biens')
+    .select('id, fisc_snapshot, ponderation_nature, categorie, coeff_entretien, coeff_situation_particuliere, coeff_situation_generale, depcom, etage, surface_m2, nb_pieces, nb_wc, nb_baignoires, nb_douches, nb_bidets, nb_eviers, ascenseur, eau_courante, gaz, electricite')
+    .in('id', bienIds);
+  if (error) throw error;
+  await Promise.all((data ?? []).map(async (row) => {
+    const evalResult = evaluateBien({
+      fisc: (row.fisc_snapshot as ComparableValues) ?? pickComparable(row),
+      working: pickComparable(row),
+      ponderation_nature: Number(row.ponderation_nature ?? 1),
+      categorie: String(row.categorie ?? ''),
+      coeff_entretien: row.coeff_entretien as number | null,
+      coeff_situation_particuliere: row.coeff_situation_particuliere as number | null,
+      coeff_situation_generale: row.coeff_situation_generale as number | null,
+      depcom: (row.depcom as string | null) ?? null,
+      etage: (row.etage as string | null) ?? null,
+    });
+    const { error: upErr } = await supabase.from('biens').update({
+      statut: evalResult.statut,
+      has_anomaly: evalResult.anomalies.length > 0,
+      anomalies: evalResult.anomalies as unknown as Json,
+      degrevement_estime: evalResult.degrevement,
+    }).eq('id', row.id);
+    if (upErr) throw upErr;
+  }));
+}
+
+export async function bulkUpdateBiens(bienIds: string[], patch: Partial<ComparableValues>): Promise<void> {
+  if (bienIds.length === 0) return;
+  const supabase = createClient();
+  const { error } = await supabase.from('biens').update(patch).in('id', bienIds);
+  if (error) throw error;
+  await recomputeBiens(bienIds);
 }
