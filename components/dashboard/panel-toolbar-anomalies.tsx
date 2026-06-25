@@ -3,10 +3,10 @@
 import { Search, Download, Plus } from 'lucide-react';
 
 interface PanelToolbarProps {
-  primaryLabel: string;
+  primaryLabel?: string;
   searchValue: string;
   onSearchChange: (v: string) => void;
-  onPrimary: () => void;
+  onPrimary?: () => void;
   onImport: () => void;
   count: number;
   total: number;
@@ -44,13 +44,15 @@ export default function PanelToolbarAnomalies({
           <Download size={14} />
           Importer
         </button>
-        <button
-          onClick={onPrimary}
-          className="bg-vert-400 text-vert-900 rounded-md px-3 py-2 text-sm font-medium flex items-center gap-1.5 hover:bg-vert-300 transition-colors"
-        >
-          <Plus size={14} />
-          {primaryLabel}
-        </button>
+        {onPrimary && primaryLabel && (
+          <button
+            onClick={onPrimary}
+            className="bg-vert-400 text-vert-900 rounded-md px-3 py-2 text-sm font-medium flex items-center gap-1.5 hover:bg-vert-300 transition-colors"
+          >
+            <Plus size={14} />
+            {primaryLabel}
+          </button>
+        )}
       </div>
     </div>
 

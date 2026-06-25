@@ -45,7 +45,7 @@ export default function Sidebar() {
           <Folder size={20} />
         </Link>
         <Link
-          href="/manage-anomalies/1"
+          href="/manage-anomalies"
           className={`size-10 flex items-center justify-center rounded-md transition-colors ${
             anomaliesActive
               ? 'bg-vert-400 text-cyprus-900'

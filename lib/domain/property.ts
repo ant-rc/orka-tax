@@ -35,6 +35,7 @@ export type BienStatut =
 
 export interface Bien {
   id: string;
+  lotId: string;
   type: BienType;
   reference: string;
   surface: string;

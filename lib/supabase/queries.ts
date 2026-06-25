@@ -32,10 +32,11 @@ function toBienType(nature: string | null): BienType {
 }
 
 function mapBien(
-  row: Pick<BienRow, 'id' | 'nature' | 'invariant_cadastral' | 'surface_m2' | 'etage' | 'statut'>,
+  row: Pick<BienRow, 'id' | 'lot_id' | 'nature' | 'invariant_cadastral' | 'surface_m2' | 'etage' | 'statut'>,
 ): Bien {
   return {
     id: row.id,
+    lotId: row.lot_id,
     type: toBienType(row.nature),
     reference: row.invariant_cadastral ?? '',
     surface: row.surface_m2 != null ? `${row.surface_m2}m2` : '',
@@ -118,7 +119,7 @@ export async function createLot(
 // Biens
 // ---------------------------------------------------------------------------
 
-const BIEN_SELECT = 'id, nature, invariant_cadastral, surface_m2, etage, statut';
+const BIEN_SELECT = 'id, lot_id, nature, invariant_cadastral, surface_m2, etage, statut';
 
 export async function fetchBiens(lotId: string): Promise<Bien[]> {
   const supabase = createClient();
@@ -140,6 +141,17 @@ export async function fetchBienById(bienId: string): Promise<Bien | null> {
     .maybeSingle();
   if (error) throw error;
   return data ? mapBien(data) : null;
+}
+
+export async function fetchBiensByProfile(fiscalProfileId: string): Promise<Bien[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('biens')
+    .select(`${BIEN_SELECT}, lots!inner(fiscal_profile_id)`)
+    .eq('lots.fiscal_profile_id', fiscalProfileId)
+    .order('created_at');
+  if (error) throw error;
+  return (data ?? []).map((r) => mapBien(r));
 }
 
 export async function createBien(

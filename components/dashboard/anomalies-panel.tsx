@@ -3,12 +3,12 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowDownUp, ArrowUp, ArrowDown, ChevronDown, Trash2 } from 'lucide-react';
-import { BIEN_TYPES, BIEN_TYPE_ICON, type Bien, type BienType } from '@/lib/domain/property';
+import { BIEN_TYPE_ICON, type Bien } from '@/lib/domain/property';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
-import { fetchBiens, createBien, deleteBien } from '@/lib/supabase/queries';
+import { fetchBiensByProfile, deleteBien } from '@/lib/supabase/queries';
 import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
-import { getActiveOrgId } from '@/lib/supabase/client';
+import { useFiscalProfile } from '@/components/dashboard/fiscal-profile-context';
 import PanelToolbarAnomalies from '@/components/dashboard/panel-toolbar-anomalies';
 import FilterChips from '@/components/dashboard/filter-chips';
 import Pagination from '@/components/dashboard/pagination';
@@ -34,9 +34,10 @@ const BIEN_ACCESSORS: Record<string, (b: Bien) => string> = {
   statut:    (b) => statutLabel(b.statut),
 };
 
-export default function AnomaliesPanel({ lotId }: { lotId: string }) {
+export default function AnomaliesPanel() {
   const toast = useToast();
   const router = useRouter();
+  const { activeProfileId } = useFiscalProfile();
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
@@ -46,27 +47,24 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
   const [page, setPage] = useState(1);
   const [biens, setBiens] = useState<Bien[]>([]);
   const [loading, setLoading] = useState(true);
-  const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Bien | null>(null);
 
-  // Add form state
-  const [newType, setNewType] = useState<BienType>('Appartement');
-  const [newRef, setNewRef] = useState('');
-  const [newSurface, setNewSurface] = useState('');
-  const [newEtage, setNewEtage] = useState('');
-
-  // Load the lot's biens from Supabase.
+  // Load biens for the active fiscal profile; reset view on switch.
   useEffect(() => {
+    if (!activeProfileId) { setBiens([]); setLoading(false); return; }
     let active = true;
     setLoading(true);
-    fetchBiens(lotId)
+    setPage(1);
+    setFilters([]);
+    setSelected(new Set());
+    fetchBiensByProfile(activeProfileId)
       .then((rows) => { if (active) setBiens(rows); })
       .catch(() => { if (active) toast('Impossible de charger les biens', 'error'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [lotId, toast]);
+  }, [activeProfileId, toast]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -161,33 +159,9 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
     }
   }, [deleteTarget, toast]);
 
-  const handleVoir = useCallback((bienId: string) => {
-    router.push(`/manage-anomalies/${lotId}/vos-biens/${bienId}`);
-  }, [router, lotId]);
-
-  const resetAddForm = useCallback(() => {
-    setNewType('Appartement');
-    setNewRef('');
-    setNewSurface('');
-    setNewEtage('');
-  }, []);
-
-  const handleAdd = useCallback(async () => {
-    try {
-      const bien = await createBien(getActiveOrgId(), lotId, {
-        type: newType,
-        reference: newRef.trim() || crypto.randomUUID().slice(0, 12),
-        surface: newSurface.trim() || '0m2',
-        etage: newEtage.trim() || '0',
-      });
-      setBiens((prev) => [bien, ...prev]);
-      setAddOpen(false);
-      resetAddForm();
-      toast('Bien ajouté', 'success');
-    } catch {
-      toast("Échec de l’ajout du bien", 'error');
-    }
-  }, [lotId, newType, newRef, newSurface, newEtage, resetAddForm, toast]);
+  const handleVoir = useCallback((bien: Bien) => {
+    router.push(`/lot/${bien.lotId}/vos-biens/${bien.id}`);
+  }, [router]);
 
   const handleImportConfirm = useCallback(() => {
     setImportOpen(false);
@@ -195,14 +169,11 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
   }, [toast]);
 
   return (
-    
     <div className="bg-white rounded-lg border border-ui-border shadow-sm overflow-hidden flex flex-col">
       <StatsbarAnomalies/>
       <PanelToolbarAnomalies
-        primaryLabel="Ajouter un bien"
         searchValue={search}
         onSearchChange={setSearch}
-        onPrimary={() => setAddOpen(true)}
         onImport={() => setImportOpen(true)}
         count={filtered.length}
         total={biens.length}
@@ -341,7 +312,7 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
                         <Trash2 size={16} />
                       </button>
                       <button
-                        onClick={() => handleVoir(bien.id)}
+                        onClick={() => handleVoir(bien)}
                         className="bg-vert-400 text-vert-900 rounded-md px-4 py-1.5 text-sm font-medium hover:bg-vert-300 transition-colors"
                       >
                         Voir
@@ -397,86 +368,6 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDeleteConfirm}
       />
-
-      {/* Add modal */}
-      <Modal
-        open={addOpen}
-        onClose={() => { setAddOpen(false); resetAddForm(); }}
-        title="Ajouter un bien"
-        footer={
-          <>
-            <button
-              onClick={() => { setAddOpen(false); resetAddForm(); }}
-              className="border border-ui-border rounded-md px-4 py-2 text-sm text-ui-text hover:bg-ui-bg-elevated transition-colors"
-            >
-              Annuler
-            </button>
-            <button
-              onClick={handleAdd}
-              className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors"
-            >
-              Ajouter
-            </button>
-          </>
-        }
-      >
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-ui-text-highlighted">Type</span>
-            <div className="grid grid-cols-3 gap-2">
-              {BIEN_TYPES.map((t: BienType) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setNewType(t)}
-                  className={`flex flex-col items-center gap-1.5 rounded-md border p-3 text-sm transition-colors ${
-                    newType === t ? 'border-vert-400 bg-vert-50 text-cyprus-900' : 'border-ui-border text-ui-text hover:bg-ui-bg-elevated'
-                  }`}
-                  aria-pressed={newType === t}
-                >
-                  <img src={BIEN_TYPE_ICON[t]} alt="" className="size-10" />
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-ui-text-highlighted" htmlFor="bien-ref">ID / Référence</label>
-            <input
-              id="bien-ref"
-              type="text"
-              value={newRef}
-              onChange={(e) => setNewRef(e.target.value)}
-              placeholder="Ex. 940770660134"
-              className="border border-ui-border rounded-md px-3 py-2 text-sm text-ui-text placeholder:text-ui-text-dimmed focus:outline-none focus:border-ui-border-accented"
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex-1 flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-ui-text-highlighted" htmlFor="bien-surface">Surface</label>
-              <input
-                id="bien-surface"
-                type="text"
-                value={newSurface}
-                onChange={(e) => setNewSurface(e.target.value)}
-                placeholder="Ex. 28m2"
-                className="border border-ui-border rounded-md px-3 py-2 text-sm text-ui-text placeholder:text-ui-text-dimmed focus:outline-none focus:border-ui-border-accented"
-              />
-            </div>
-            <div className="flex-1 flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-ui-text-highlighted" htmlFor="bien-etage">Étage</label>
-              <input
-                id="bien-etage"
-                type="text"
-                value={newEtage}
-                onChange={(e) => setNewEtage(e.target.value)}
-                placeholder="Ex. 2"
-                className="border border-ui-border rounded-md px-3 py-2 text-sm text-ui-text placeholder:text-ui-text-dimmed focus:outline-none focus:border-ui-border-accented"
-              />
-            </div>
-          </div>
-        </div>
-      </Modal>
 
       {/* Import modal */}
       <Modal
