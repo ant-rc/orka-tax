@@ -6,8 +6,6 @@ import { ArrowDownUp, ArrowUp, ArrowDown, ChevronRight, ChevronDown } from 'luci
 import { type Lot } from '@/lib/domain/property';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
-import { fetchLots, createLot } from '@/lib/supabase/queries';
-import { getActiveOrgId } from '@/lib/supabase/client';
 import PanelToolbar from '@/components/dashboard/panel-toolbar';
 import FilterChips from '@/components/dashboard/filter-chips';
 import Pagination from '@/components/dashboard/pagination';
@@ -15,7 +13,7 @@ import Modal from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import { useSelection } from '@/components/dashboard/selection-context';
 import { buildImportedLot, parseImportFile, rowsToBiens } from '@/lib/import/client';
-import { createClient, DEMO_ORG_ID } from '@/lib/supabase/client';
+import { createClient, getActiveOrgId } from '@/lib/supabase/client';
 import type { Database } from '@/lib/supabase/types';
 
 type BienInsert = Database['public']['Tables']['biens']['Insert'];
@@ -66,7 +64,6 @@ export default function LotsPanel() {
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
   const [lots, setLots] = useState<Lot[]>([]);
-  const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -80,7 +77,6 @@ export default function LotsPanel() {
   // Charge les lots depuis Supabase pour l'organisation active.
   useEffect(() => {
     let active = true;
-    setLoading(true);
     (async () => {
       const supabase = createClient();
       const { data, error } = await supabase
@@ -91,11 +87,9 @@ export default function LotsPanel() {
       if (!active) return;
       if (error) {
         toast('Impossible de charger les lots', 'error');
-        setLoading(false);
         return;
       }
       setLots((data ?? []).map(dbLotToLot));
-      setLoading(false);
     })();
     return () => { active = false; };
   }, [toast]);
@@ -231,25 +225,29 @@ export default function LotsPanel() {
       const { data: lotRow, error: lotErr } = await supabase
         .from('lots')
         .insert({
-          org_id: DEMO_ORG_ID,
+          org_id: getActiveOrgId(),
           name: imported.name,
           description: [imported.rue, imported.ville].filter(Boolean).join(' · ') || null,
         })
         .select('id, name, description')
         .single();
       if (lotErr || !lotRow) {
-        throw new Error(lotErr?.message ?? 'Échec de la création du lot');
+        toast(lotErr?.message ?? 'Échec de la création du lot', 'error');
+        return;
       }
 
       // 2. Insère le contenu du fichier : un bien par ligne, rattaché au lot.
       const biens: BienInsert[] = rowsToBiens(table).map((b) => ({
         ...b,
-        org_id: DEMO_ORG_ID,
+        org_id: getActiveOrgId(),
         lot_id: lotRow.id,
       }));
       if (biens.length > 0) {
         const { error: biensErr } = await supabase.from('biens').insert(biens);
-        if (biensErr) throw new Error(biensErr.message);
+        if (biensErr) {
+          toast(biensErr.message, 'error');
+          return;
+        }
       }
 
       setLots((prev) => [
@@ -369,14 +367,14 @@ export default function LotsPanel() {
                   <td className="px-4 py-3">
                     <span className="flex items-center gap-2">
                       <img src="/assets/lots.webp" alt="" className="size-6 shrink-0" />
-                      <span className="block max-w-[160px] truncate text-ui-text-highlighted font-medium" title={lot.name}>{lot.name}</span>
+                      <span className="block max-w-40 truncate text-ui-text-highlighted font-medium" title={lot.name}>{lot.name}</span>
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="block max-w-[220px] truncate uppercase text-ui-text-muted" title={lot.address}>{lot.address}</span>
+                    <span className="block max-w-55 truncate uppercase text-ui-text-muted" title={lot.address}>{lot.address}</span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="block max-w-[160px] truncate uppercase text-ui-text-muted" title={lot.city}>{lot.city}</span>
+                    <span className="block max-w-40 truncate uppercase text-ui-text-muted" title={lot.city}>{lot.city}</span>
                   </td>
                   <td className="px-4 py-3">
                     <span className="border border-ui-border rounded-full px-2 py-0.5 text-xs text-ui-text-muted">
@@ -501,9 +499,10 @@ export default function LotsPanel() {
             </button>
             <button
               onClick={handleImportConfirm}
-              className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors"
+              disabled={!importFile || importing}
+              className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Importer
+              {importing ? 'Import…' : 'Importer'}
             </button>
           </>
         }
@@ -513,6 +512,7 @@ export default function LotsPanel() {
           <input
             type="file"
             accept=".csv,.xlsx"
+            onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
             className="text-sm text-ui-text file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:border-ui-border file:text-sm file:text-ui-text file:bg-white hover:file:bg-ui-bg-elevated"
           />
         </div>
