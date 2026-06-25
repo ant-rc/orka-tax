@@ -55,7 +55,7 @@ export default function FilterChips({ fields, filters, onAdd, onRemove, onReset 
           <select
             value={selectedKey}
             onChange={(e) => setSelectedKey(e.target.value)}
-            className="border border-ui-border rounded-md px-2 py-1 text-xs text-ui-text focus:outline-none focus:border-ui-border-accented"
+            className="border border-ui-border rounded-md px-2 py-1 text-xs text-ui-text focus:outline-none focus:border-ui-border-accented filter-color"
           >
             {fields.map((f) => (
               <option key={f.key} value={f.key}>{f.label}</option>
