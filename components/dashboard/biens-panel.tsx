@@ -6,7 +6,7 @@ import { ArrowDownUp, ArrowUp, ArrowDown, ChevronDown, Trash2 } from 'lucide-rea
 import { BIEN_TYPES, BIEN_TYPE_ICON, type Bien, type BienType } from '@/lib/domain/property';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
-import { deleteBien, simulateBiens, bulkUpdateBiens, recomputeBiens } from '@/lib/supabase/queries';
+import { deleteBien, simulateBiens, bulkUpdateBiens, recomputeBiens, createReclamation } from '@/lib/supabase/queries';
 import BulkEditModal, { type BulkEditBien } from '@/components/dashboard/bulk-edit-modal';
 import { bienSignature, type ComparableValues } from '@/lib/domain/comparable';
 import PanelToolbar from '@/components/dashboard/panel-toolbar';
@@ -68,6 +68,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
   const [deleteTarget, setDeleteTarget] = useState<Bien | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [comparableMap, setComparableMap] = useState<Map<string, ComparableValues>>(new Map());
+  const [generatingReclamation, setGeneratingReclamation] = useState(false);
 
   // Add form state
   const [newType, setNewType] = useState<BienType>('Appartement');
@@ -244,6 +245,21 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
     });
   }, []);
 
+  const hasAnomalieBiens = useMemo(() => biens.some((b) => b.statut === 'anomalie'), [biens]);
+
+  const handleGenererReclamation = useCallback(async () => {
+    setGeneratingReclamation(true);
+    try {
+      const { total } = await createReclamation(lotId);
+      toast(`Réclamation générée (${total} €)`, 'success');
+      await loadBiens();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Échec de la génération de la réclamation', 'error');
+    } finally {
+      setGeneratingReclamation(false);
+    }
+  }, [lotId, loadBiens, toast]);
+
   const handleDeleteConfirm = useCallback(async () => {
     if (!deleteTarget) return;
     const id = deleteTarget.id;
@@ -419,6 +435,13 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
           className="border border-ui-border rounded-md px-3 py-2 text-sm flex items-center gap-1.5 text-ui-text hover:bg-ui-bg-elevated transition-colors shrink-0"
         >
           Édition
+        </button>
+        <button
+          onClick={handleGenererReclamation}
+          disabled={!hasAnomalieBiens || generatingReclamation}
+          className="bg-cyprus-900 text-white rounded-md px-3 py-2 text-sm font-medium hover:bg-cyprus-800 transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {generatingReclamation ? 'Génération…' : 'Générer ma réclamation'}
         </button>
       </div>
       <FilterChips
