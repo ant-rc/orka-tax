@@ -6,7 +6,7 @@ import { ArrowDownUp, ArrowUp, ArrowDown, ChevronDown, Trash2 } from 'lucide-rea
 import { BIEN_TYPES, BIEN_TYPE_ICON, type Bien, type BienType } from '@/lib/domain/property';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
-import { fetchBiens, createBien, deleteBien } from '@/lib/supabase/queries';
+import { fetchBiens, createBien, deleteBien, simulateBiens } from '@/lib/supabase/queries';
 import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
 import { getActiveOrgId } from '@/lib/supabase/client';
 import PanelToolbar from '@/components/dashboard/panel-toolbar';
@@ -36,7 +36,7 @@ const BIEN_ACCESSORS: Record<string, (b: Bien) => string> = {
 export default function BiensPanel({ lotId }: { lotId: string }) {
   const toast = useToast();
   const router = useRouter();
-  const { setSelectedCount } = useSelection();
+  const { setSelectedCount, registerGenerate } = useSelection();
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
@@ -64,6 +64,22 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
 
   // Reset the shared count when leaving this screen.
   useEffect(() => () => setSelectedCount(0), [setSelectedCount]);
+
+  // Register generate action with the selection context.
+  const handleGenerate = useCallback(async () => {
+    const ids = [...selected];
+    if (!ids.length) return;
+    await simulateBiens(ids);
+    const rows = await fetchBiens(lotId);
+    setBiens(rows);
+    setSelected(new Set());
+    setSelectedCount(0);
+  }, [selected, lotId, setSelectedCount]);
+
+  useEffect(() => {
+    registerGenerate(handleGenerate);
+    return () => registerGenerate(null);
+  }, [handleGenerate, registerGenerate]);
 
   // Load the lot's biens from Supabase.
   useEffect(() => {

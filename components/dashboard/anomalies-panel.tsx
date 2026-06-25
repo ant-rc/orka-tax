@@ -6,7 +6,7 @@ import { ArrowDownUp, ArrowUp, ArrowDown, ChevronDown, Trash2 } from 'lucide-rea
 import { BIEN_TYPE_ICON, type Bien } from '@/lib/domain/property';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
-import { fetchBiensByProfile, deleteBien } from '@/lib/supabase/queries';
+import { fetchAnomalyBiensByProfile, deleteBien } from '@/lib/supabase/queries';
 import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
 import { useFiscalProfile } from '@/components/dashboard/fiscal-profile-context';
 import PanelToolbarAnomalies from '@/components/dashboard/panel-toolbar-anomalies';
@@ -59,7 +59,7 @@ export default function AnomaliesPanel() {
     setPage(1);
     setFilters([]);
     setSelected(new Set());
-    fetchBiensByProfile(activeProfileId)
+    fetchAnomalyBiensByProfile(activeProfileId)
       .then((rows) => { if (active) setBiens(rows); })
       .catch(() => { if (active) toast('Impossible de charger les biens', 'error'); })
       .finally(() => { if (active) setLoading(false); });
