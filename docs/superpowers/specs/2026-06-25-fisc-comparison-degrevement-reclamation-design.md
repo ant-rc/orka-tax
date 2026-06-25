@@ -46,10 +46,11 @@ Après chaque apport → recompute comparaison + dégrèvement sur les biens tou
 ## Bulk-edit groupé (modal)
 
 - Bouton **« Édition »** sur l'écran biens → **modal à checkboxes**.
-- Sélection des biens : cases individuelles **+** raccourci « appliquer aux N biens de même **catégorie/nature** du lot » (s'appuie sur les filtres existants — ex. tous les Appartements 28 m²).
+- **Regroupement par valeurs identiques** : les biens modifiables ensemble sont ceux qui partagent **exactement les mêmes valeurs sur les 11 champs comparables** (invariants différents). On calcule une **signature** par bien = tuple des 11 champs (`bienSignature`) ; les biens de même signature dans le lot forment un groupe.
+- Sélection : cases individuelles **+** raccourci « appliquer aux N biens identiques (même signature) du lot ». Les filtres existants aident à isoler le groupe.
 - Choix d'une ou plusieurs **caractéristiques** (parmi `COMPARABLE_FIELDS`) + nouvelle valeur.
 - **Appliquer** → met à jour les valeurs de travail des biens cochés (Supabase) → recompute → ceux qui diffèrent du FISC passent en `anomalie` + dégrèvement.
-- Exemple : 12 appartements 28 m², une douche en moins → cocher les 11 autres, `nb_douches` → Appliquer.
+- Exemple : 12 appartements 28 m² strictement identiques, une douche en moins → cocher les 11 autres → `nb_douches` → Appliquer.
 
 ## Écran anomalies
 
@@ -67,7 +68,7 @@ Après chaque apport → recompute comparaison + dégrèvement sur les biens tou
 lib/comparison/compare.ts     (pur, testé)  diff FISC vs travail → anomalies[]
 lib/degrevement/compute.ts    (étendu)       écart signé
 lib/tax/taux.ts               (pur, testé)   resolveTaux(commune, etage)
-lib/domain/comparable.ts                     COMPARABLE_FIELDS
+lib/domain/comparable.ts                     COMPARABLE_FIELDS + bienSignature() (regroupement bulk-edit)
 biens: + fisc_snapshot jsonb, + anomalies jsonb, statut/has_anomaly/degrevement_estime (signé)
 reclamations (+ lignes)
 UI: bouton Édition (modal bulk-edit) · import (existant) · anomalies-panel (± par bien) · "Générer ma réclamation"
