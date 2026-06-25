@@ -203,7 +203,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
   }, [toast]);
 
   return (
-    <div className="bg-white rounded-lg border border-ui-border shadow-sm overflow-hidden flex flex-col">
+    <div className="flex flex-col">
       <PanelToolbar
         primaryLabel="Ajouter un bien"
         searchValue={search}
@@ -222,7 +222,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
       />
 
       {/* Table */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto bg-white border border-ui-border rounded-lg">
         <table className="w-full border-separate border-spacing-0">
           <thead>
             <tr className="bg-cyprus-900 text-white text-sm">
@@ -362,7 +362,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
       </div>
 
       {/* Footer */}
-      <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-3 text-xs text-ui-text-muted border-t border-ui-border">
+      <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-3 text-xs text-ui-text-muted">
         <span>
           {filtered.length === 0
             ? '0'
