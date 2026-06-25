@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowDownUp, ArrowUp, ArrowDown, ChevronRight, ChevronDown } from 'lucide-react';
 import { MOCK_LOTS, type Lot } from '@/lib/mock/data';
@@ -11,6 +11,7 @@ import FilterChips from '@/components/dashboard/filter-chips';
 import Pagination from '@/components/dashboard/pagination';
 import Modal from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
+import { useSelection } from '@/components/dashboard/selection-context';
 
 const LOT_FIELDS: FieldDef[] = [
   { key: 'name',    label: 'Lot' },
@@ -26,6 +27,7 @@ const LOT_ACCESSORS: Record<string, (l: Lot) => string> = {
 
 export default function LotsPanel() {
   const toast = useToast();
+  const { setSelectedCount } = useSelection();
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
@@ -41,6 +43,14 @@ export default function LotsPanel() {
   // Create form state
   const [newName, setNewName] = useState('');
   const [newRef, setNewRef] = useState('');
+
+  // Expose the selection count to the BottomBar ("Générer mon rapport").
+  useEffect(() => {
+    setSelectedCount(selected.size);
+  }, [selected, setSelectedCount]);
+
+  // Reset the shared count when leaving this screen.
+  useEffect(() => () => setSelectedCount(0), [setSelectedCount]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();

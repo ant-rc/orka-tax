@@ -3,9 +3,12 @@
 import { Save } from 'lucide-react';
 import { MOCK_LAST_MODIFIED } from '@/lib/mock/data';
 import { useToast } from '@/components/ui/toast';
+import { useSelection } from '@/components/dashboard/selection-context';
 
 export default function BottomBar() {
   const toast = useToast();
+  const { selectedCount } = useSelection();
+  const canGenerate = selectedCount > 0;
 
   return (
     <footer className="bg-white border-t border-ui-border px-8 py-4 flex items-center justify-between shrink-0">
@@ -22,7 +25,9 @@ export default function BottomBar() {
         </button>
         <button
           onClick={() => toast('Génération du rapport en cours…')}
-          className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors"
+          disabled={!canGenerate}
+          title={canGenerate ? undefined : 'Sélectionnez au moins un lot ou un bien'}
+          className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-vert-400"
           aria-label="Générer mon rapport"
         >
           Générer mon rapport

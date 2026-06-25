@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowDownUp, ArrowUp, ArrowDown, ChevronDown, Trash2 } from 'lucide-react';
 import { MOCK_BIENS, BIEN_TYPES, BIEN_TYPE_ICON, type Bien, type BienType } from '@/lib/mock/data';
@@ -12,6 +12,7 @@ import Pagination from '@/components/dashboard/pagination';
 import StatusBadge, { statutLabel } from '@/components/dashboard/status-badge';
 import Modal from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
+import { useSelection } from '@/components/dashboard/selection-context';
 
 const BIEN_FIELDS: FieldDef[] = [
   { key: 'type',      label: 'Type' },
@@ -32,6 +33,7 @@ const BIEN_ACCESSORS: Record<string, (b: Bien) => string> = {
 export default function BiensPanel({ lotId }: { lotId: string }) {
   const toast = useToast();
   const router = useRouter();
+  const { setSelectedCount } = useSelection();
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
@@ -49,6 +51,14 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
   const [newRef, setNewRef] = useState('');
   const [newSurface, setNewSurface] = useState('');
   const [newEtage, setNewEtage] = useState('');
+
+  // Expose the selection count to the BottomBar ("Générer mon rapport").
+  useEffect(() => {
+    setSelectedCount(selected.size);
+  }, [selected, setSelectedCount]);
+
+  // Reset the shared count when leaving this screen.
+  useEffect(() => () => setSelectedCount(0), [setSelectedCount]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
