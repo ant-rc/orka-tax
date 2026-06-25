@@ -185,5 +185,7 @@ export async function fetchDeclarationCounts(
     supabase.from('biens').select('lot_id, lots!inner(fiscal_profile_id)', { count: 'exact', head: true })
       .eq('lots.fiscal_profile_id', fiscalProfileId),
   ]);
+  if (lotsRes.error) throw lotsRes.error;
+  if (biensRes.error) throw biensRes.error;
   return { lots: lotsRes.count ?? 0, biens: biensRes.count ?? 0 };
 }
