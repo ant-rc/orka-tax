@@ -14,6 +14,7 @@ import StatusBadge, { statutLabel } from '@/components/dashboard/status-badge';
 import Modal from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import { useSelection } from '@/components/dashboard/selection-context';
+import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
 import { parseImportFile, rowsToBiens, normalizeInvariant, bienValueEqual } from '@/lib/import/client';
 import { CANONICAL_FIELDS } from '@/lib/canonical/fields';
 import { createClient, getActiveOrgId } from '@/lib/supabase/client';
