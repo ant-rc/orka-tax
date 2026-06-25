@@ -223,6 +223,44 @@ export type Database = {
           },
         ]
       }
+      fiscal_profiles: {
+        Row: {
+          commune: string | null
+          created_at: string
+          depcom: string | null
+          id: string
+          label: string
+          numero_fiscal: string
+          org_id: string
+        }
+        Insert: {
+          commune?: string | null
+          created_at?: string
+          depcom?: string | null
+          id?: string
+          label: string
+          numero_fiscal: string
+          org_id: string
+        }
+        Update: {
+          commune?: string | null
+          created_at?: string
+          depcom?: string | null
+          id?: string
+          label?: string
+          numero_fiscal?: string
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fiscal_profiles_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       import_batches: {
         Row: {
           created_at: string
@@ -280,6 +318,7 @@ export type Database = {
           city: string | null
           created_at: string
           description: string | null
+          fiscal_profile_id: string | null
           id: string
           name: string
           org_id: string
@@ -290,6 +329,7 @@ export type Database = {
           city?: string | null
           created_at?: string
           description?: string | null
+          fiscal_profile_id?: string | null
           id?: string
           name: string
           org_id: string
@@ -300,12 +340,20 @@ export type Database = {
           city?: string | null
           created_at?: string
           description?: string | null
+          fiscal_profile_id?: string | null
           id?: string
           name?: string
           org_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "lots_fiscal_profile_id_fkey"
+            columns: ["fiscal_profile_id"]
+            isOneToOne: false
+            referencedRelation: "fiscal_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lots_org_id_fkey"
             columns: ["org_id"]

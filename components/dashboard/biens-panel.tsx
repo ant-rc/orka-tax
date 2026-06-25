@@ -62,6 +62,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Bien | null>(null);
 
   // Add form state
   const [newType, setNewType] = useState<BienType>('Appartement');
@@ -181,7 +182,9 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
     });
   }, []);
 
-  const handleDelete = useCallback(async (id: string) => {
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteTarget) return;
+    const id = deleteTarget.id;
     try {
       await deleteBien(id);
       setBiens((prev) => prev.filter((b) => b.id !== id));
@@ -189,8 +192,10 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
       toast('Bien supprimé', 'success');
     } catch {
       toast('Échec de la suppression', 'error');
+    } finally {
+      setDeleteTarget(null);
     }
-  }, [toast]);
+  }, [deleteTarget, toast]);
 
   const handleVoir = useCallback((bienId: string) => {
     router.push(`/lot/${lotId}/vos-biens/${bienId}`);
@@ -325,7 +330,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
   }, [importFile, lotId, loadBiens, closeImport, toast]);
 
   return (
-    <div className="bg-white rounded-lg border border-ui-border shadow-sm overflow-hidden flex flex-col">
+    <div className="flex flex-col">
       <PanelToolbar
         primaryLabel="Ajouter un bien"
         searchValue={search}
@@ -344,11 +349,11 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
       />
 
       {/* Table */}
-      <div className="flex-1 overflow-auto">
-        <table className="w-full">
+      <div className="flex-1 overflow-auto bg-white border border-ui-border rounded-lg">
+        <table className="w-full border-separate border-spacing-0">
           <thead>
             <tr className="bg-cyprus-900 text-white text-sm">
-              <th className="px-4 py-3 w-10">
+              <th className="px-4 py-3 w-10 rounded-tl-lg">
                 <input
                   type="checkbox"
                   className="rounded"
@@ -418,7 +423,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
                   )}
                 </button>
               </th>
-              <th className="px-4 py-3 w-24"></th>
+              <th className="px-4 py-3 w-24 rounded-tr-lg"></th>
             </tr>
           </thead>
           <tbody>
@@ -462,7 +467,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
                       <button
-                        onClick={() => handleDelete(bien.id)}
+                        onClick={() => setDeleteTarget(bien)}
                         className="text-error hover:bg-error/10 rounded-md size-7 flex items-center justify-center transition-colors"
                         aria-label={`Supprimer ${bien.reference}`}
                       >
@@ -484,7 +489,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
       </div>
 
       {/* Footer */}
-      <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-3 text-xs text-ui-text-muted border-t border-ui-border">
+      <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-3 text-xs text-ui-text-muted">
         <span>
           {filtered.length === 0
             ? '0'
@@ -516,6 +521,15 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
           )}
         </div>
       </div>
+
+      {/* Confirm delete modal */}
+      <ConfirmDeleteModal
+        open={!!deleteTarget}
+        title={`Supprimer le bien « ${deleteTarget?.reference ?? ''} »`}
+        description={"Êtes-vous sûr de vouloir supprimer ce bien ?\nCette action est irréversible."}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteConfirm}
+      />
 
       {/* Add modal */}
       <Modal

@@ -22,7 +22,7 @@ export default function PanelToolbar({
   total,
 }: PanelToolbarProps) {
   return (
-    <div className="p-5 flex items-center justify-between gap-4 flex-wrap border-b border-ui-border">
+    <div className="p-5 flex items-center justify-between gap-4 flex-wrap">
       <div className="flex items-center gap-3">
         <span className="text-lg font-semibold text-ui-text-highlighted">Configurations de vos biens</span>
         <span className="bg-vert-200 text-vert-900 rounded-md px-2 py-0.5 text-sm font-medium">

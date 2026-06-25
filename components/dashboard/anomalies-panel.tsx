@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowDownUp, ArrowUp, ArrowDown, ChevronDown, Trash2 } from 'lucide-react';
-import { MOCK_BIENS, BIEN_TYPES, BIEN_TYPE_ICON, type Bien, type BienType } from '@/lib/mock/data';
+import { BIEN_TYPE_ICON, type Bien } from '@/lib/domain/property';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
+import { fetchBiensByProfile, deleteBien } from '@/lib/supabase/queries';
+import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
+import { useFiscalProfile } from '@/components/dashboard/fiscal-profile-context';
 import PanelToolbarAnomalies from '@/components/dashboard/panel-toolbar-anomalies';
 import FilterChips from '@/components/dashboard/filter-chips';
 import Pagination from '@/components/dashboard/pagination';
@@ -31,9 +34,10 @@ const BIEN_ACCESSORS: Record<string, (b: Bien) => string> = {
   statut:    (b) => statutLabel(b.statut),
 };
 
-export default function AnomaliesPanel({ lotId }: { lotId: string }) {
+export default function AnomaliesPanel() {
   const toast = useToast();
   const router = useRouter();
+  const { activeProfileId } = useFiscalProfile();
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
@@ -41,16 +45,26 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
-  const [biens, setBiens] = useState<Bien[]>(MOCK_BIENS);
-  const [addOpen, setAddOpen] = useState(false);
+  const [biens, setBiens] = useState<Bien[]>([]);
+  const [loading, setLoading] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Bien | null>(null);
 
-  // Add form state
-  const [newType, setNewType] = useState<BienType>('Appartement');
-  const [newRef, setNewRef] = useState('');
-  const [newSurface, setNewSurface] = useState('');
-  const [newEtage, setNewEtage] = useState('');
+  // Load biens for the active fiscal profile; reset view on switch.
+  useEffect(() => {
+    if (!activeProfileId) { setBiens([]); setLoading(false); return; }
+    let active = true;
+    setLoading(true);
+    setPage(1);
+    setFilters([]);
+    setSelected(new Set());
+    fetchBiensByProfile(activeProfileId)
+      .then((rows) => { if (active) setBiens(rows); })
+      .catch(() => { if (active) toast('Impossible de charger les biens', 'error'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [activeProfileId, toast]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -130,38 +144,24 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
     });
   }, []);
 
-  const handleDelete = useCallback((id: string) => {
-    setBiens((prev) => prev.filter((b) => b.id !== id));
-    setSelected((prev) => { const next = new Set(prev); next.delete(id); return next; });
-    toast('Bien supprimé', 'error');
-  }, [toast]);
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteTarget) return;
+    const id = deleteTarget.id;
+    try {
+      await deleteBien(id);
+      setBiens((prev) => prev.filter((b) => b.id !== id));
+      setSelected((prev) => { const next = new Set(prev); next.delete(id); return next; });
+      toast('Bien supprimé', 'error');
+    } catch {
+      toast('Échec de la suppression', 'error');
+    } finally {
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, toast]);
 
-  const handleVoir = useCallback((bienId: string) => {
-    router.push(`/manage-anomalies/${lotId}/vos-biens/${bienId}`);
-  }, [router, lotId]);
-
-  const resetAddForm = useCallback(() => {
-    setNewType('Appartement');
-    setNewRef('');
-    setNewSurface('');
-    setNewEtage('');
-  }, []);
-
-  const handleAdd = useCallback(() => {
-    const bien: Bien = {
-      id: crypto.randomUUID(),
-      type: newType,
-      reference: newRef.trim() || crypto.randomUUID().slice(0, 12),
-      surface: newSurface.trim() || '0m2',
-      etage: newEtage.trim() || '0',
-      degrevement: 'en_attente',
-      statut: 'importe',
-    };
-    setBiens((prev) => [bien, ...prev]);
-    setAddOpen(false);
-    resetAddForm();
-    toast('Bien ajouté', 'success');
-  }, [newType, newRef, newSurface, newEtage, resetAddForm, toast]);
+  const handleVoir = useCallback((bien: Bien) => {
+    router.push(`/lot/${bien.lotId}/vos-biens/${bien.id}`);
+  }, [router]);
 
   const handleImportConfirm = useCallback(() => {
     setImportOpen(false);
@@ -169,14 +169,11 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
   }, [toast]);
 
   return (
-    
-    <div className="bg-white rounded-lg border border-ui-border shadow-sm overflow-hidden flex flex-col">
+    <div className="flex flex-col">
       <StatsbarAnomalies/>
       <PanelToolbarAnomalies
-        primaryLabel="Ajouter un bien"
         searchValue={search}
         onSearchChange={setSearch}
-        onPrimary={() => setAddOpen(true)}
         onImport={() => setImportOpen(true)}
         count={filtered.length}
         total={biens.length}
@@ -190,11 +187,11 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
       />
       <DuplicatesCountAnomalies/>
       {/* Table */}
-      <div className="flex-1 overflow-auto">
-        <table className="w-full">
+      <div className="flex-1 overflow-auto bg-white border border-ui-border rounded-lg">
+        <table className="w-full border-separate border-spacing-0">
           <thead>
             <tr className="bg-cyprus-900 text-white text-sm">
-              <th className="px-4 py-3 w-10">
+              <th className="px-4 py-3 w-10 rounded-tl-lg">
                 <input
                   type="checkbox"
                   className="rounded"
@@ -264,14 +261,14 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
                   )}
                 </button>
               </th>
-              <th className="px-4 py-3 w-24"></th>
+              <th className="px-4 py-3 w-24 rounded-tr-lg"></th>
             </tr>
           </thead>
           <tbody>
             {visible.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-4 py-6 text-center text-ui-text-muted text-sm">
-                  Aucun bien trouvé
+                  {loading ? 'Chargement…' : 'Aucun bien trouvé'}
                 </td>
               </tr>
             ) : (
@@ -308,14 +305,14 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
                       <button
-                        onClick={() => handleDelete(bien.id)}
+                        onClick={() => setDeleteTarget(bien)}
                         className="text-error hover:bg-error/10 rounded-md size-7 flex items-center justify-center transition-colors"
                         aria-label={`Supprimer ${bien.reference}`}
                       >
                         <Trash2 size={16} />
                       </button>
                       <button
-                        onClick={() => handleVoir(bien.id)}
+                        onClick={() => handleVoir(bien)}
                         className="bg-vert-400 text-vert-900 rounded-md px-4 py-1.5 text-sm font-medium hover:bg-vert-300 transition-colors"
                       >
                         Voir
@@ -330,7 +327,7 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
       </div>
 
       {/* Footer */}
-      <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-3 text-xs text-ui-text-muted border-t border-ui-border">
+      <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-3 text-xs text-ui-text-muted">
         <span>
           {filtered.length === 0
             ? '0'
@@ -363,85 +360,14 @@ export default function AnomaliesPanel({ lotId }: { lotId: string }) {
         </div>
       </div>
 
-      {/* Add modal */}
-      <Modal
-        open={addOpen}
-        onClose={() => { setAddOpen(false); resetAddForm(); }}
-        title="Ajouter un bien"
-        footer={
-          <>
-            <button
-              onClick={() => { setAddOpen(false); resetAddForm(); }}
-              className="border border-ui-border rounded-md px-4 py-2 text-sm text-ui-text hover:bg-ui-bg-elevated transition-colors"
-            >
-              Annuler
-            </button>
-            <button
-              onClick={handleAdd}
-              className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors"
-            >
-              Ajouter
-            </button>
-          </>
-        }
-      >
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-ui-text-highlighted">Type</span>
-            <div className="grid grid-cols-3 gap-2">
-              {BIEN_TYPES.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setNewType(t)}
-                  className={`flex flex-col items-center gap-1.5 rounded-md border p-3 text-sm transition-colors ${
-                    newType === t ? 'border-vert-400 bg-vert-50 text-cyprus-900' : 'border-ui-border text-ui-text hover:bg-ui-bg-elevated'
-                  }`}
-                  aria-pressed={newType === t}
-                >
-                  <img src={BIEN_TYPE_ICON[t]} alt="" className="size-10" />
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-ui-text-highlighted" htmlFor="bien-ref">ID / Référence</label>
-            <input
-              id="bien-ref"
-              type="text"
-              value={newRef}
-              onChange={(e) => setNewRef(e.target.value)}
-              placeholder="Ex. 940770660134"
-              className="border border-ui-border rounded-md px-3 py-2 text-sm text-ui-text placeholder:text-ui-text-dimmed focus:outline-none focus:border-ui-border-accented"
-            />
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex-1 flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-ui-text-highlighted" htmlFor="bien-surface">Surface</label>
-              <input
-                id="bien-surface"
-                type="text"
-                value={newSurface}
-                onChange={(e) => setNewSurface(e.target.value)}
-                placeholder="Ex. 28m2"
-                className="border border-ui-border rounded-md px-3 py-2 text-sm text-ui-text placeholder:text-ui-text-dimmed focus:outline-none focus:border-ui-border-accented"
-              />
-            </div>
-            <div className="flex-1 flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-ui-text-highlighted" htmlFor="bien-etage">Étage</label>
-              <input
-                id="bien-etage"
-                type="text"
-                value={newEtage}
-                onChange={(e) => setNewEtage(e.target.value)}
-                placeholder="Ex. 2"
-                className="border border-ui-border rounded-md px-3 py-2 text-sm text-ui-text placeholder:text-ui-text-dimmed focus:outline-none focus:border-ui-border-accented"
-              />
-            </div>
-          </div>
-        </div>
-      </Modal>
+      {/* Confirm delete modal */}
+      <ConfirmDeleteModal
+        open={!!deleteTarget}
+        title={`Supprimer le bien « ${deleteTarget?.reference ?? ''} »`}
+        description={"Êtes-vous sûr de vouloir supprimer ce bien ?\nCette action est irréversible."}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteConfirm}
+      />
 
       {/* Import modal */}
       <Modal

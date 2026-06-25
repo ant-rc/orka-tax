@@ -29,7 +29,7 @@ export default function BottomBar() {
           onClick={() => toast('Génération du rapport en cours…')}
           disabled={!canGenerate}
           title={canGenerate ? undefined : 'Sélectionnez au moins un lot ou un bien'}
-          className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-vert-400"
+          className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors disabled:bg-ui-border disabled:text-ui-text-dimmed disabled:cursor-not-allowed disabled:hover:bg-ui-border"
           aria-label="Générer mon rapport"
         >
           Générer mon rapport

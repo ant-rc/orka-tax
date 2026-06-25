@@ -35,10 +35,19 @@ export type BienStatut =
 
 export interface Bien {
   id: string;
+  lotId: string;
   type: BienType;
   reference: string;
   surface: string;
   etage: string;
   degrevement: LotStatus;
   statut: BienStatut;
+}
+
+export interface FiscalProfile {
+  id: string;
+  numeroFiscal: string;
+  label: string;
+  depcom: string;
+  commune: string;
 }

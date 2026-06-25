@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { createClient, setActiveFiscalProfileId } from '@/lib/supabase/client';
+import { fetchFiscalProfiles } from '@/lib/supabase/queries';
 
 // Demo logins shown as hints — the actual match is resolved against Supabase.
 const DEMO_ACCOUNTS = [
@@ -50,6 +51,11 @@ export default function IdentificationPage() {
         'orka_org',
         JSON.stringify({ id: match.id, name: match.name, companyId: match.company_id }),
       );
+
+      // Default the active fiscal profile to the account's first profile.
+      const profiles = await fetchFiscalProfiles(match.id);
+      if (profiles[0]) setActiveFiscalProfileId(profiles[0].id);
+
       router.push('/dashboard');
     } catch {
       setError('Connexion impossible. Réessayez.');

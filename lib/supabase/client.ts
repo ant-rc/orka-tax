@@ -33,3 +33,24 @@ export function getActiveOrgId(): string {
   }
   return DEMO_ORG_ID;
 }
+
+const FISCAL_PROFILE_KEY = 'orka_fiscal_profile';
+
+/** Active fiscal profile id (client-side only). */
+export function getActiveFiscalProfileId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(FISCAL_PROFILE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setActiveFiscalProfileId(id: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(FISCAL_PROFILE_KEY, id);
+  } catch {
+    // Ignore storage failures (private mode, etc.).
+  }
+}

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowDownUp, ArrowUp, ArrowDown, ChevronRight, ChevronDown } from 'lucide-react';
+import { ArrowDownUp, ArrowUp, ArrowDown, ChevronRight, ChevronDown, Trash2 } from 'lucide-react';
 import { type Lot } from '@/lib/domain/property';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
@@ -56,6 +56,7 @@ const LOT_ACCESSORS: Record<string, (l: Lot) => string> = {
 export default function LotsPanel() {
   const toast = useToast();
   const { setSelectedCount } = useSelection();
+  const { activeProfileId } = useFiscalProfile();
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
@@ -69,13 +70,15 @@ export default function LotsPanel() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Lot | null>(null);
 
   // Create form state
   const [newName, setNewName] = useState('');
   const [newRef, setNewRef] = useState('');
 
-  // Charge les lots depuis Supabase pour l'organisation active.
+  // Load the portfolio for the active fiscal profile; reset view on switch.
   useEffect(() => {
+    if (!activeProfileId) { setLots([]); setLoading(false); return; }
     let active = true;
     (async () => {
       const supabase = createClient();
@@ -92,7 +95,7 @@ export default function LotsPanel() {
       setLots((data ?? []).map(dbLotToLot));
     })();
     return () => { active = false; };
-  }, [toast]);
+  }, [activeProfileId, toast]);
 
   // Expose the selection count to the BottomBar ("Générer mon rapport").
   useEffect(() => {
@@ -263,8 +266,23 @@ export default function LotsPanel() {
     }
   }, [importFile, closeImport, toast]);
 
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteTarget) return;
+    const id = deleteTarget.id;
+    try {
+      await deleteLot(id);
+      setLots((prev) => prev.filter((l) => l.id !== id));
+      setSelected((prev) => { const next = new Set(prev); next.delete(id); return next; });
+      toast('Lot supprimé', 'error');
+    } catch {
+      toast('Échec de la suppression du lot', 'error');
+    } finally {
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, toast]);
+
   return (
-    <div className="bg-white rounded-lg border border-ui-border shadow-sm overflow-hidden flex flex-col">
+    <div className="flex flex-col">
       <PanelToolbar
         primaryLabel="Créer un lot"
         searchValue={search}
@@ -283,11 +301,11 @@ export default function LotsPanel() {
       />
 
       {/* Table */}
-      <div className="flex-1 overflow-auto">
-        <table className="w-full">
+      <div className="flex-1 overflow-auto bg-white border border-ui-border rounded-lg">
+        <table className="w-full border-separate border-spacing-0">
           <thead>
             <tr className="bg-cyprus-900 text-white text-sm">
-              <th className="px-4 py-3 w-10">
+              <th className="px-4 py-3 w-10 rounded-tl-lg">
                 <input
                   type="checkbox"
                   className="rounded"
@@ -342,7 +360,7 @@ export default function LotsPanel() {
                 </button>
               </th>
               <th className="text-left px-4 py-3 font-medium">Dégrèvement estimés</th>
-              <th className="px-4 py-3 w-10"></th>
+              <th className="px-4 py-3 w-24 rounded-tr-lg"></th>
             </tr>
           </thead>
           <tbody>
@@ -382,13 +400,22 @@ export default function LotsPanel() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <Link
-                      href={`/lot/${lot.id}/vos-biens`}
-                      className="bg-vert-400 text-cyprus-900 rounded-md size-7 flex items-center justify-center hover:bg-vert-300 transition-colors"
-                      aria-label={`Ouvrir le lot ${lot.name}`}
-                    >
-                      <ChevronRight size={16} />
-                    </Link>
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => setDeleteTarget(lot)}
+                        className="text-error hover:bg-error/10 rounded-md size-7 flex items-center justify-center transition-colors"
+                        aria-label={`Supprimer ${lot.name}`}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                      <Link
+                        href={`/lot/${lot.id}/vos-biens`}
+                        className="bg-vert-400 text-cyprus-900 rounded-md size-7 flex items-center justify-center hover:bg-vert-300 transition-colors"
+                        aria-label={`Ouvrir le lot ${lot.name}`}
+                      >
+                        <ChevronRight size={16} />
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -398,7 +425,7 @@ export default function LotsPanel() {
       </div>
 
       {/* Footer */}
-      <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-3 text-xs text-ui-text-muted border-t border-ui-border">
+      <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-3 text-xs text-ui-text-muted">
         <span>
           {filtered.length === 0
             ? '0'
@@ -431,6 +458,15 @@ export default function LotsPanel() {
         </div>
       </div>
 
+      {/* Confirm delete modal */}
+      <ConfirmDeleteModal
+        open={!!deleteTarget}
+        title={`Supprimer le lot « ${deleteTarget?.name ?? ''} »`}
+        description={"Êtes-vous sûr de vouloir supprimer ce lot ?\nCette action est irréversible."}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteConfirm}
+      />
+
       {/* Create modal */}
       <Modal
         open={createOpen}
@@ -447,7 +483,7 @@ export default function LotsPanel() {
             <button
               onClick={handleCreate}
               disabled={!newName.trim()}
-              className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors disabled:bg-ui-border disabled:text-ui-text-dimmed disabled:cursor-not-allowed"
             >
               Créer
             </button>

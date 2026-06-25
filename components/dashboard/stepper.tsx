@@ -3,7 +3,7 @@ import { FolderOpen, ScrollText, Gavel, ChevronRight } from 'lucide-react';
 
 export default function Stepper() {
   return (
-    <div className="bg-vert-900 w-full px-8 h-14 flex items-center gap-3 shrink-0">
+    <div className="bg-cyprus-950 w-full px-8 h-14 flex items-center gap-3 shrink-0">
       {/* Step 1 — active */}
       <div className="flex items-center gap-2">
         <span className="size-7 rounded-full bg-vert-400 text-cyprus-900 flex items-center justify-center shrink-0">
