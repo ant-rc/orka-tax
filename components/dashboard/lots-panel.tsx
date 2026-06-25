@@ -14,6 +14,34 @@ import Pagination from '@/components/dashboard/pagination';
 import Modal from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import { useSelection } from '@/components/dashboard/selection-context';
+import { buildImportedLot, parseImportFile, rowsToBiens } from '@/lib/import/client';
+import { createClient, DEMO_ORG_ID } from '@/lib/supabase/client';
+import type { Database } from '@/lib/supabase/types';
+
+type BienInsert = Database['public']['Tables']['biens']['Insert'];
+
+/** Ligne `lots` + un échantillon de biens (jointure) pour en déduire adresse/ville. */
+type LotRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  biens: { rue: string | null; ville: string | null }[];
+};
+
+/** Mappe une ligne `lots` de Supabase vers le modèle d'affichage.
+ *  Adresse/ville proviennent d'un bien rattaché ; à défaut on retombe sur la
+ *  description "adresse · ville" (format du seed de démo). */
+function dbLotToLot(row: LotRow): Lot {
+  const firstBien = row.biens?.find((b) => b.rue || b.ville);
+  const [descAddress = '', descCity = ''] = (row.description ?? '').split(' · ');
+  return {
+    id: row.id,
+    name: row.name,
+    address: firstBien?.rue ?? descAddress,
+    city: firstBien?.ville ?? descCity,
+    status: 'en_attente',
+  };
+}
 
 const LOT_FIELDS: FieldDef[] = [
   { key: 'name',    label: 'Lot' },
@@ -41,20 +69,34 @@ export default function LotsPanel() {
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
 
   // Create form state
   const [newName, setNewName] = useState('');
   const [newRef, setNewRef] = useState('');
 
-  // Load the portfolio from Supabase for the active organization.
+  // Charge les lots depuis Supabase pour l'organisation active.
   useEffect(() => {
     let active = true;
     setLoading(true);
-    fetchLots(getActiveOrgId())
-      .then((rows) => { if (active) setLots(rows); })
-      .catch(() => { if (active) toast('Impossible de charger les lots', 'error'); })
-      .finally(() => { if (active) setLoading(false); });
+    (async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+          .from('lots')
+          .select('id, name, description, biens(rue, ville)')
+          .eq('org_id', getActiveOrgId())
+          .order('created_at', { ascending: false });
+      if (!active) return;
+      if (error) {
+        toast('Impossible de charger les lots', 'error');
+        setLoading(false);
+        return;
+      }
+      setLots((data ?? []).map(dbLotToLot));
+      setLoading(false);
+    })();
     return () => { active = false; };
   }, [toast]);
 
@@ -63,7 +105,7 @@ export default function LotsPanel() {
     setSelectedCount(selected.size);
   }, [selected, setSelectedCount]);
 
-  // Reset the shared count when leaving this screen.
+// Reset the shared count when leaving this screen.
   useEffect(() => () => setSelectedCount(0), [setSelectedCount]);
 
   const filtered = useMemo(() => {
@@ -148,25 +190,80 @@ export default function LotsPanel() {
 
   const handleCreate = useCallback(async () => {
     if (!newName.trim()) return;
-    try {
-      const lot = await createLot(getActiveOrgId(), {
-        name: newName.trim(),
-        address: newRef.trim().toUpperCase(),
-      });
-      setLots((prev) => [lot, ...prev]);
-      setCreateOpen(false);
-      setNewName('');
-      setNewRef('');
-      toast('Lot créé', 'success');
-    } catch {
-      toast('Échec de la création du lot', 'error');
+
+    const supabase = createClient();
+    const { data, error } = await supabase
+        .from('lots')
+        .insert({
+          org_id: getActiveOrgId(),
+          name: newName.trim(),
+          description: newRef.trim() || null,
+        })
+        .select('id, name, description')
+        .single();
+
+    if (error || !data) {
+      toast(error?.message ?? 'Échec de la création du lot', 'error');
+      return;
     }
+
+    setLots((prev) => [dbLotToLot({ ...data, biens: [] }), ...prev]);
+    setCreateOpen(false);
+    setNewName('');
+    setNewRef('');
+    toast('Lot créé', 'success');
   }, [newName, newRef, toast]);
 
-  const handleImportConfirm = useCallback(() => {
+  const closeImport = useCallback(() => {
     setImportOpen(false);
-    toast('Import simulé — pipeline à brancher');
-  }, [toast]);
+    setImportFile(null);
+  }, []);
+
+  const handleImportConfirm = useCallback(async () => {
+    if (!importFile) return;
+    setImporting(true);
+    try {
+      const table = await parseImportFile(importFile);
+      const imported = buildImportedLot(table);
+      const supabase = createClient();
+
+      // 1. Crée le lot (nom "depcom-nom_immeuble", adresse · ville en description).
+      const { data: lotRow, error: lotErr } = await supabase
+        .from('lots')
+        .insert({
+          org_id: DEMO_ORG_ID,
+          name: imported.name,
+          description: [imported.rue, imported.ville].filter(Boolean).join(' · ') || null,
+        })
+        .select('id, name, description')
+        .single();
+      if (lotErr || !lotRow) {
+        throw new Error(lotErr?.message ?? 'Échec de la création du lot');
+      }
+
+      // 2. Insère le contenu du fichier : un bien par ligne, rattaché au lot.
+      const biens: BienInsert[] = rowsToBiens(table).map((b) => ({
+        ...b,
+        org_id: DEMO_ORG_ID,
+        lot_id: lotRow.id,
+      }));
+      if (biens.length > 0) {
+        const { error: biensErr } = await supabase.from('biens').insert(biens);
+        if (biensErr) throw new Error(biensErr.message);
+      }
+
+      setLots((prev) => [
+        dbLotToLot({ ...lotRow, biens: [{ rue: imported.rue, ville: imported.ville }] }),
+        ...prev,
+      ]);
+      closeImport();
+      toast(`Lot « ${imported.name} » importé (${biens.length} biens)`, 'success');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Échec de l'import", 'error');
+    } finally {
+      setImporting(false);
+    }
+  }, [importFile, closeImport, toast]);
 
   return (
     <div className="bg-white rounded-lg border border-ui-border shadow-sm overflow-hidden flex flex-col">
@@ -254,7 +351,7 @@ export default function LotsPanel() {
             {visible.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-6 text-center text-ui-text-muted text-sm">
-                  {loading ? 'Chargement…' : 'Aucun lot trouvé'}
+                  Aucun lot trouvé
                 </td>
               </tr>
             ) : (

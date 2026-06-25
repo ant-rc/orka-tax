@@ -5,24 +5,34 @@ import Link from 'next/link';
 import { fetchBienById } from '@/lib/supabase/queries';
 import type { Bien } from '@/lib/domain/property';
 import StatusBadge from '@/components/dashboard/status-badge';
+import { createClient } from '@/lib/supabase/client';
+import { dbBienToBien, BIEN_DISPLAY_COLUMNS } from '@/lib/biens/display';
 
 export default function BienDetailPage({
   params,
 }: {
   params: Promise<{ lotId: string; bienId: string }>;
 }) {
-  const { lotId, bienId } = use(params);
-  const [bien, setBien] = useState<Bien | null>(null);
-  const [loading, setLoading] = useState(true);
+    const { lotId, bienId } = use(params);
+    const [bien, setBien] = useState<Bien | null>(null);
+    const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    fetchBienById(bienId)
-      .then((b) => { if (active) setBien(b); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [bienId]);
+    useEffect(() => {
+        let active = true;
+        setLoading(true);
+        (async () => {
+            const supabase = createClient();
+            const { data } = await supabase
+                .from('biens')
+                .select(BIEN_DISPLAY_COLUMNS)
+                .eq('id', bienId)
+                .maybeSingle();
+            if (!active) return;
+            setBien(data ? dbBienToBien(data) : null);
+            setLoading(false);
+        })();
+        return () => { active = false; };
+    }, [bienId]);
 
   return (
     <div className="m-6">
