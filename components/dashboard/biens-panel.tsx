@@ -174,6 +174,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
     };
     return {
       id: b.id,
+      type: b.type,
       label: `${b.type} ${b.surface}`,
       values,
       signature: bienSignature(values),
@@ -764,8 +765,13 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
         biens={selectedBulkBiens}
         onClose={() => setEditOpen(false)}
         onApply={async (ids, patch) => {
-          await bulkUpdateBiens(ids, patch);
+          const { anomalies } = await bulkUpdateBiens(ids, patch);
           await loadBiens();
+          if (anomalies > 0) {
+            toast(`${anomalies} bien${anomalies > 1 ? 's' : ''} en anomalie détecté${anomalies > 1 ? 's' : ''}`, 'error');
+          } else {
+            toast('Aucune anomalie détectée', 'success');
+          }
         }}
 >>>>>>> d87ba27 (feat(dashboard): wire grouped bulk-edit into the biens panel)
       />
