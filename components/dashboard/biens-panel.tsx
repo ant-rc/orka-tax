@@ -14,14 +14,13 @@ import StatusBadge, { statutLabel } from '@/components/dashboard/status-badge';
 import Modal from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import { useSelection } from '@/components/dashboard/selection-context';
-import { parseImportFile, rowsToBiens, normalizeInvariant, bienValueEqual } from '@/lib/import/client';
-import { CANONICAL_FIELDS } from '@/lib/canonical/fields';
+import { parseImportFile } from '@/lib/import/client';
+import { diffBiensAgainstImport } from '@/lib/import/diff';
 import { createClient, getActiveOrgId } from '@/lib/supabase/client';
 import { dbBienToBien, BIEN_DISPLAY_COLUMNS } from '@/lib/biens/display';
+import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
+import ImportModal from '@/components/ui/import-modal';
 import type { Database } from '@/lib/supabase/types';
-
-type BienUpdate = Database['public']['Tables']['biens']['Update'];
-type BienInsert = Database['public']['Tables']['biens']['Insert'];
 
 /** "28m2" / "28 m²" / "28" → 28 (numérique, pour la colonne surface_m2). */
 function parseSurface(raw: string): number | null {
@@ -48,7 +47,7 @@ const BIEN_ACCESSORS: Record<string, (b: Bien) => string> = {
 export default function BiensPanel({ lotId }: { lotId: string }) {
   const toast = useToast();
   const router = useRouter();
-  const { setSelectedCount } = useSelection();
+  const { setSelectedCount, setAnomalieCount } = useSelection();
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
@@ -70,13 +69,18 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
   const [newSurface, setNewSurface] = useState('');
   const [newEtage, setNewEtage] = useState('');
 
-  // Expose the selection count to the BottomBar ("Générer mon rapport").
+  // Expose la sélection au BottomBar.
   useEffect(() => {
     setSelectedCount(selected.size);
   }, [selected, setSelectedCount]);
 
-  // Reset the shared count when leaving this screen.
-  useEffect(() => () => setSelectedCount(0), [setSelectedCount]);
+  // Expose le nombre de biens en anomalie au BottomBar.
+  useEffect(() => {
+    setAnomalieCount(biens.filter((b) => b.statut === 'anomalie').length);
+  }, [biens, setAnomalieCount]);
+
+  // Reset au départ de cet écran.
+  useEffect(() => () => { setSelectedCount(0); setAnomalieCount(0); }, [setSelectedCount, setAnomalieCount]);
 
   // Charge les biens du lot depuis Supabase.
   const loadBiens = useCallback(async () => {
@@ -241,86 +245,39 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
     setImporting(true);
     try {
       const table = await parseImportFile(importFile);
-      const records = rowsToBiens(table);
-
-      // Garde-fou : si aucune ligne ne porte d'invariant, la colonne « ID » n'a pas été
-      // détectée → on refuse plutôt que de créer des doublons silencieusement.
-      if (records.length > 0 && records.every((r) => normalizeInvariant(r.invariant_cadastral) === '')) {
-        throw new Error(
-          "Colonne « invariant / ID » introuvable dans le fichier : impossible de rapprocher les biens.",
-        );
-      }
 
       const supabase = createClient();
-
-      // On charge les valeurs COMPLÈTES des biens du lot pour comparer champ par champ.
-      const allColumns = ['id', ...CANONICAL_FIELDS.map((f) => f.key)].join(', ');
+      const allColumns = ['id', 'invariant_cadastral', 'rue', 'depcom', 'ville', 'nom_immeuble',
+        'nature', 'ponderation_nature', 'etage', 'categorie', 'surface_m2', 'coeff_entretien',
+        'coeff_situation_particuliere', 'coeff_situation_generale', 'ascenseur', 'eau_courante',
+        'gaz', 'electricite', 'nb_baignoires', 'nb_douches', 'nb_bidets', 'nb_wc', 'nb_eviers',
+        'egout', 'nb_pieces', 'nb_vide_ordures'].join(', ');
       const { data: existingRows, error: loadErr } = await supabase
         .from('biens')
         .select(allColumns)
-        .eq('lot_id', lotId);
+        .eq('lot_id', lotId)
+        .order('created_at', { ascending: true });
       if (loadErr) throw new Error(loadErr.message);
 
-      // Index invariant normalisé -> ligne existante complète.
-      const byInvariant = new Map<string, Record<string, unknown>>();
-      for (const row of (existingRows ?? []) as unknown as Record<string, unknown>[]) {
-        const key = normalizeInvariant(row.invariant_cadastral);
-        if (key) byInvariant.set(key, row);
-      }
+      const fullBiens = (existingRows ?? []) as unknown as (Record<string, unknown> & { id: string; invariant_cadastral: string | null })[];
+      const diffs = diffBiensAgainstImport(fullBiens, table);
 
-      let updated = 0;
-      let unchanged = 0;
-      let inserted = 0;
-      const toInsert: BienInsert[] = [];
-      for (const rec of records) {
-        const key = normalizeInvariant(rec.invariant_cadastral);
-        const existing = key ? byInvariant.get(key) : undefined;
-
-        if (existing) {
-          // Diff : on ne garde que les champs présents (non vides) dans le fichier ET
-          // dont la valeur diffère de l'existant.
-          const payload: BienUpdate = Object.fromEntries(
-            Object.entries(rec).filter(
-              ([k, v]) => v !== null && v !== '' && !bienValueEqual(existing[k], v),
-            ),
-          );
-          if (Object.keys(payload).length === 0) {
-            unchanged++;
-            continue;
-          }
-          // .select() permet de compter les lignes réellement modifiées : si RLS
-          // bloque l'UPDATE, Supabase ne renvoie ni erreur ni ligne.
-          const { data, error } = await supabase
-            .from('biens')
-            .update(payload)
-            .eq('id', existing.id as string)
-            .select('id');
-          if (error) throw new Error(error.message);
-          if (data && data.length > 0) updated++;
-        } else {
-          // Nouveau bien : pas de correspondance dans la liste → on l'ajoute au lot.
-          toInsert.push({ ...rec, org_id: getActiveOrgId(), lot_id: lotId } as BienInsert);
-        }
-      }
-
-      if (toInsert.length > 0) {
-        const { data, error } = await supabase.from('biens').insert(toInsert).select('id');
-        if (error) throw new Error(error.message);
-        inserted = data?.length ?? 0;
-      }
-
-      // Des biens devaient changer mais aucune écriture n'a abouti → RLS probable.
-      if (updated === 0 && inserted === 0 && unchanged === 0 && records.length > 0) {
-        throw new Error(
-          "Écriture refusée par la base (RLS). Applique la migration 0004 : « demo public write » sur la table biens.",
-        );
+      if (diffs.length > 0) {
+        const ids = diffs.map((d) => d.bienId);
+        const { error: updateErr } = await supabase
+          .from('biens')
+          .update({ statut: 'anomalie' })
+          .in('id', ids);
+        if (updateErr) throw new Error(updateErr.message);
       }
 
       await loadBiens();
       closeImport();
       toast(
-        `${updated} bien(s) mis à jour, ${inserted} ajouté(s), ${unchanged} inchangé(s)`,
-        updated + inserted > 0 ? 'success' : 'default',
+        diffs.length === 0
+          ? 'Aucune différence détectée'
+          : `${diffs.length} bien(s) marqué(s) « anomalie détectée »`,
+        diffs.length > 0 ? 'error' : 'success',
       );
     } catch (err) {
       toast(err instanceof Error ? err.message : "Échec de l'import", 'error');
@@ -611,43 +568,14 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
         </div>
       </Modal>
 
-      {/* Import modal */}
-      <Modal
+      <ImportModal
         open={importOpen}
         onClose={closeImport}
-        title="Mettre à jour les biens (CSV ou XLSX)"
-        footer={
-          <>
-            <button
-              onClick={closeImport}
-              className="border border-ui-border rounded-md px-4 py-2 text-sm text-ui-text hover:bg-ui-bg-elevated transition-colors"
-            >
-              Annuler
-            </button>
-            <button
-              onClick={handleImportConfirm}
-              disabled={!importFile || importing}
-              className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {importing ? 'Import…' : 'Importer'}
-            </button>
-          </>
-        }
-      >
-        <div className="flex flex-col gap-3">
-          <p className="text-sm text-ui-text-muted">
-            Sélectionnez un fichier CSV ou XLSX. Les biens y figurant (rapprochés par leur
-            invariant cadastral) seront mis à jour&nbsp;; les biens absents du fichier restent
-            inchangés.
-          </p>
-          <input
-            type="file"
-            accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
-            className="text-sm text-ui-text file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:border-ui-border file:text-sm file:text-ui-text file:bg-white hover:file:bg-ui-bg-elevated"
-          />
-        </div>
-      </Modal>
+        onConfirm={handleImportConfirm}
+        importing={importing}
+        file={importFile}
+        onFileChange={setImportFile}
+      />
     </div>
   );
 }

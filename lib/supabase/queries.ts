@@ -154,6 +154,28 @@ export async function fetchBiensByProfile(fiscalProfileId: string): Promise<Bien
   return (data ?? []).map((r) => mapBien(r));
 }
 
+const FULL_BIEN_SELECT = [
+  'id', 'lot_id', 'invariant_cadastral', 'nature', 'rue', 'depcom', 'ville',
+  'nom_immeuble', 'ponderation_nature', 'etage', 'categorie', 'surface_m2',
+  'coeff_entretien', 'coeff_situation_particuliere', 'coeff_situation_generale',
+  'ascenseur', 'eau_courante', 'gaz', 'electricite',
+  'nb_baignoires', 'nb_douches', 'nb_bidets', 'nb_wc', 'nb_eviers', 'egout',
+  'nb_pieces', 'nb_vide_ordures',
+].join(', ');
+
+export async function fetchFullBiensByProfile(
+  fiscalProfileId: string,
+): Promise<Record<string, unknown>[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('biens')
+    .select(`${FULL_BIEN_SELECT}, lots!inner(fiscal_profile_id)`)
+    .eq('lots.fiscal_profile_id', fiscalProfileId)
+    .order('created_at');
+  if (error) throw error;
+  return (data ?? []) as unknown as Record<string, unknown>[];
+}
+
 export async function createBien(
   orgId: string,
   lotId: string,

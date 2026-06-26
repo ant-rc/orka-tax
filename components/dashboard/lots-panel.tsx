@@ -15,6 +15,10 @@ import { useSelection } from '@/components/dashboard/selection-context';
 import { buildImportedLot, parseImportFile, rowsToBiens } from '@/lib/import/client';
 import { createClient, getActiveOrgId } from '@/lib/supabase/client';
 import type { Database } from '@/lib/supabase/types';
+import {useFiscalProfile} from "@/components/dashboard/fiscal-profile-context";
+import {deleteLot} from "@/lib/supabase/queries";
+import ConfirmDeleteModal from "@/components/dashboard/confirm-delete-modal";
+import ImportModal from '@/components/ui/import-modal';
 
 type BienInsert = Database['public']['Tables']['biens']['Insert'];
 
@@ -63,6 +67,7 @@ export default function LotsPanel() {
   const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pageSize, setPageSize] = useState(10);
+  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [lots, setLots] = useState<Lot[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
@@ -273,7 +278,7 @@ export default function LotsPanel() {
       await deleteLot(id);
       setLots((prev) => prev.filter((l) => l.id !== id));
       setSelected((prev) => { const next = new Set(prev); next.delete(id); return next; });
-      toast('Lot supprimé', 'error');
+      toast('Lot supprimé', 'success');
     } catch {
       toast('Échec de la suppression du lot', 'error');
     } finally {
@@ -520,39 +525,15 @@ export default function LotsPanel() {
         </div>
       </Modal>
 
-      {/* Import modal */}
-      <Modal
+      <ImportModal
         open={importOpen}
-        onClose={() => setImportOpen(false)}
-        title="Importer des lots"
-        footer={
-          <>
-            <button
-              onClick={() => setImportOpen(false)}
-              className="border border-ui-border rounded-md px-4 py-2 text-sm text-ui-text hover:bg-ui-bg-elevated transition-colors"
-            >
-              Annuler
-            </button>
-            <button
-              onClick={handleImportConfirm}
-              disabled={!importFile || importing}
-              className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {importing ? 'Import…' : 'Importer'}
-            </button>
-          </>
-        }
-      >
-        <div className="flex flex-col gap-3">
-          <p className="text-sm text-ui-text-muted">Sélectionnez un fichier CSV ou XLSX à importer.</p>
-          <input
-            type="file"
-            accept=".csv,.xlsx"
-            onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
-            className="text-sm text-ui-text file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:border-ui-border file:text-sm file:text-ui-text file:bg-white hover:file:bg-ui-bg-elevated"
-          />
-        </div>
-      </Modal>
+        onClose={closeImport}
+        onConfirm={handleImportConfirm}
+        importing={importing}
+        file={importFile}
+        onFileChange={setImportFile}
+        description="Un nouveau lot sera créé avec les biens du fichier importé."
+      />
     </div>
   );
 }

@@ -2,11 +2,11 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowDownUp, ArrowUp, ArrowDown, ChevronDown, Trash2 } from 'lucide-react';
+import { ArrowDownUp, ArrowUp, ArrowDown, ChevronDown, Trash2, ArrowLeft } from 'lucide-react';
 import { BIEN_TYPE_ICON, type Bien } from '@/lib/domain/property';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
-import { fetchBiensByProfile, deleteBien } from '@/lib/supabase/queries';
+import { fetchBiensByProfile, fetchFullBiensByProfile, deleteBien } from '@/lib/supabase/queries';
 import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
 import { useFiscalProfile } from '@/components/dashboard/fiscal-profile-context';
 import PanelToolbarAnomalies from '@/components/dashboard/panel-toolbar-anomalies';
@@ -17,6 +17,8 @@ import Modal from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import DuplicatesCountAnomalies from './duplicates-count-anomalies';
 import StatsbarAnomalies from './statsbar-anomalies';
+import { parseImportFile } from '@/lib/import/client';
+import { diffBiensAgainstImport, type ImportDiffRow } from '@/lib/import/diff';
 
 const BIEN_FIELDS: FieldDef[] = [
   { key: 'type',      label: 'Type' },
@@ -47,9 +49,27 @@ export default function AnomaliesPanel() {
   const [page, setPage] = useState(1);
   const [biens, setBiens] = useState<Bien[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filterAnomalieOnly, setFilterAnomalieOnly] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importDiffs, setImportDiffs] = useState<ImportDiffRow[] | null>(null);
+  const [diffDetail, setDiffDetail] = useState<ImportDiffRow | null>(null);
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Bien | null>(null);
+
+  // Lire les flags sessionStorage au montage.
+  useEffect(() => {
+    const raw = sessionStorage.getItem('import_diffs');
+    if (raw) {
+      try { setImportDiffs(JSON.parse(raw) as ImportDiffRow[]); } catch { /* ignore */ }
+      sessionStorage.removeItem('import_diffs');
+    }
+    if (sessionStorage.getItem('filter_anomalie') === '1') {
+      setFilterAnomalieOnly(true);
+      sessionStorage.removeItem('filter_anomalie');
+    }
+  }, []);
 
   // Load biens for the active fiscal profile; reset view on switch.
   useEffect(() => {
@@ -69,6 +89,7 @@ export default function AnomaliesPanel() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return biens.filter((b) => {
+      if (filterAnomalieOnly && b.statut !== 'anomalie') return false;
       const matchSearch =
         b.type.toLowerCase().includes(q) ||
         b.reference.toLowerCase().includes(q);
@@ -77,7 +98,7 @@ export default function AnomaliesPanel() {
       );
       return matchSearch && matchFilters;
     });
-  }, [biens, search, filters]);
+  }, [biens, search, filters, filterAnomalieOnly]);
 
   const sorted = useMemo(() => {
     if (!sort) return filtered;
@@ -163,10 +184,133 @@ export default function AnomaliesPanel() {
     router.push(`/lot/${bien.lotId}/vos-biens/${bien.id}`);
   }, [router]);
 
-  const handleImportConfirm = useCallback(() => {
+  const closeImport = useCallback(() => {
     setImportOpen(false);
-    toast('Import simulé — pipeline à brancher');
-  }, [toast]);
+    setImportFile(null);
+  }, []);
+
+  const handleImportConfirm = useCallback(async () => {
+    if (!importFile || !activeProfileId) return;
+    setImporting(true);
+    try {
+      const table = await parseImportFile(importFile);
+      const fullBiens = await fetchFullBiensByProfile(activeProfileId);
+      const diffs = diffBiensAgainstImport(
+        fullBiens as (Record<string, unknown> & { id: string; invariant_cadastral: string | null })[],
+        table,
+      );
+      closeImport();
+      if (diffs.length === 0) {
+        toast('Aucune différence détectée avec les données existantes', 'success');
+      } else {
+        setImportDiffs(diffs);
+        toast(`${diffs.length} anomalie${diffs.length > 1 ? 's' : ''} détectée${diffs.length > 1 ? 's' : ''}`, 'error');
+      }
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Échec de l'import", 'error');
+    } finally {
+      setImporting(false);
+    }
+  }, [importFile, activeProfileId, closeImport, toast]);
+
+  if (importDiffs !== null) {
+    return (
+      <div className="flex flex-col">
+        <div className="flex items-center gap-3 mb-4">
+          <button
+            onClick={() => setImportDiffs(null)}
+            className="flex items-center gap-1.5 text-sm text-ui-text-muted hover:text-ui-text transition-colors"
+          >
+            <ArrowLeft size={16} /> Retour aux anomalies
+          </button>
+          <span className="text-sm font-medium text-ui-text-highlighted">
+            {importDiffs.length} anomalie{importDiffs.length > 1 ? 's' : ''} détectée{importDiffs.length > 1 ? 's' : ''} après comparaison
+          </span>
+        </div>
+
+        <div className="flex-1 overflow-auto bg-white border border-ui-border rounded-lg">
+          <table className="w-full border-separate border-spacing-0">
+            <thead>
+              <tr className="bg-cyprus-900 text-white text-sm">
+                <th className="text-left px-4 py-3 font-medium rounded-tl-lg">Invariant cadastral</th>
+                <th className="text-left px-4 py-3 font-medium">Champs modifiés</th>
+                <th className="text-left px-4 py-3 font-medium">Aperçu des différences</th>
+                <th className="px-4 py-3 w-24 rounded-tr-lg"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {importDiffs.map((diff) => (
+                <tr key={diff.bienId} className="border-b border-ui-border text-sm hover:bg-ui-bg-elevated/50 transition-colors">
+                  <td className="px-4 py-3 font-medium text-cyprus-900">{diff.reference}</td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center rounded-full bg-orange-100 text-orange-700 px-2.5 py-0.5 text-xs font-medium">
+                      {diff.changedFields.length} champ{diff.changedFields.length > 1 ? 's' : ''}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-ui-text-muted text-xs">
+                    {diff.changedFields.slice(0, 2).map((f) => f.label).join(', ')}
+                    {diff.changedFields.length > 2 && ` +${diff.changedFields.length - 2}`}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end">
+                      <button
+                        onClick={() => setDiffDetail(diff)}
+                        className="bg-vert-400 text-vert-900 rounded-md px-4 py-1.5 text-sm font-medium hover:bg-vert-300 transition-colors"
+                      >
+                        Voir
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Diff detail modal */}
+        <Modal
+          open={!!diffDetail}
+          onClose={() => setDiffDetail(null)}
+          title={`Différences — ${diffDetail?.reference ?? ''}`}
+          footer={
+            <button
+              onClick={() => setDiffDetail(null)}
+              className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors"
+            >
+              Fermer
+            </button>
+          }
+        >
+          {diffDetail && (
+            <div className="overflow-auto">
+              <table className="w-full text-sm border-separate border-spacing-0">
+                <thead>
+                  <tr className="text-xs text-ui-text-muted uppercase">
+                    <th className="text-left px-3 py-2 font-medium">Champ</th>
+                    <th className="text-left px-3 py-2 font-medium">Valeur actuelle</th>
+                    <th className="text-left px-3 py-2 font-medium">Valeur importée</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {diffDetail.changedFields.map((f) => (
+                    <tr key={f.key} className="border-t border-ui-border">
+                      <td className="px-3 py-2.5 font-medium text-ui-text-highlighted">{f.label}</td>
+                      <td className="px-3 py-2.5 text-ui-text-muted line-through">
+                        {f.current == null || f.current === '' ? <span className="italic">vide</span> : String(f.current)}
+                      </td>
+                      <td className="px-3 py-2.5 text-vert-700 font-medium">
+                        {f.incoming == null || f.incoming === '' ? <span className="italic text-ui-text-muted">vide</span> : String(f.incoming)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Modal>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col">
@@ -186,6 +330,17 @@ export default function AnomaliesPanel() {
         onReset={handleResetFilters}
       />
       <DuplicatesCountAnomalies/>
+      {filterAnomalieOnly && (
+        <div className="flex items-center gap-2 mb-2 px-1 py-2 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-700">
+          <span className="flex-1">Affichage filtré : biens avec anomalie détectée uniquement</span>
+          <button
+            onClick={() => setFilterAnomalieOnly(false)}
+            className="text-xs underline hover:text-orange-900 transition-colors shrink-0"
+          >
+            Tout afficher
+          </button>
+        </div>
+      )}
       {/* Table */}
       <div className="flex-1 overflow-auto bg-white border border-ui-border rounded-lg">
         <table className="w-full border-separate border-spacing-0">
@@ -372,30 +527,32 @@ export default function AnomaliesPanel() {
       {/* Import modal */}
       <Modal
         open={importOpen}
-        onClose={() => setImportOpen(false)}
+        onClose={closeImport}
         title="Importer des biens"
         footer={
           <>
             <button
-              onClick={() => setImportOpen(false)}
+              onClick={closeImport}
               className="border border-ui-border rounded-md px-4 py-2 text-sm text-ui-text hover:bg-ui-bg-elevated transition-colors"
             >
               Annuler
             </button>
             <button
               onClick={handleImportConfirm}
-              className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors"
+              disabled={!importFile || importing}
+              className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Importer
+              {importing ? 'Analyse…' : 'Importer'}
             </button>
           </>
         }
       >
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-ui-text-muted">Sélectionnez un fichier CSV ou XLSX à importer.</p>
+          <p className="text-sm text-ui-text-muted">Sélectionnez un fichier CSV ou XLSX à comparer avec vos données existantes.</p>
           <input
             type="file"
             accept=".csv,.xlsx"
+            onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
             className="text-sm text-ui-text file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:border-ui-border file:text-sm file:text-ui-text file:bg-white hover:file:bg-ui-bg-elevated"
           />
         </div>
