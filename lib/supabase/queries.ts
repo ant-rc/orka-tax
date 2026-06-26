@@ -343,6 +343,14 @@ export async function fetchTunnelProgress(
   return { total: totalRes.count ?? 0, untreated: untreatedRes.count ?? 0 };
 }
 
+/** Demo: reset every bien of the profile to its FISC reference + "importe", and
+ *  clear its réclamations (replays the demo from scratch). */
+export async function resetProfileToFisc(fiscalProfileId: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc('reset_profile_to_fisc', { p_profile: fiscalProfileId });
+  if (error) throw error;
+}
+
 export async function fetchBienIdsByLots(lotIds: string[]): Promise<string[]> {
   if (lotIds.length === 0) return [];
   const supabase = createClient();

@@ -573,7 +573,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      reset_profile_to_fisc: { Args: { p_profile: string }; Returns: undefined }
     }
     Enums: {
       bien_status: "draft" | "validated" | "archived"
