@@ -11,13 +11,9 @@ import {
 import { natureToType } from '@/lib/biens/display';
 import { simulateStatut } from '@/lib/tunnel/advance';
 import { evaluateBien } from '@/lib/comparison/evaluate';
-import { type FieldAnomaly } from '@/lib/comparison/compare';
-import {
-  COMPARABLE_FIELDS,
-  COMPARABLE_FIELD_LABELS,
-  type ComparableField,
-  type ComparableValues,
-} from '@/lib/domain/comparable';
+import { type FieldAnomaly, type ComparisonRow, buildComparisonRows } from '@/lib/comparison/compare';
+import { aggregateReclamationRecap, type ReclamationRecap } from '@/lib/reclamation/recap';
+import { type ComparableValues } from '@/lib/domain/comparable';
 import { computeVlc, type VlcInput } from '@/lib/degrevement/compute';
 import { DEFAULT_BAREME } from '@/lib/degrevement/bareme';
 import { resolveTaux } from '@/lib/tax/taux';
@@ -191,14 +187,6 @@ export async function createBien(
   return mapBien(data);
 }
 
-export interface ComparisonRow {
-  field: ComparableField;
-  label: string;
-  working: number | boolean | null;
-  fisc: number | boolean | null;
-  match: boolean;
-}
-
 export interface BienComparison {
   id: string;
   type: BienType;
@@ -234,12 +222,7 @@ export async function fetchBienComparison(bienId: string): Promise<BienCompariso
   const row = bien as Record<string, unknown>;
   const working = pickComparable(row);
   const fisc = fiscRow ? pickComparable(fiscRow as Record<string, unknown>) : working;
-
-  const rows: ComparisonRow[] = COMPARABLE_FIELDS.map((field) => {
-    const w = working[field] ?? null;
-    const f = fisc[field] ?? null;
-    return { field, label: COMPARABLE_FIELD_LABELS[field], working: w, fisc: f, match: w === f };
-  });
+  const rows = buildComparisonRows(working, fisc);
 
   const base = {
     ponderation_nature: Number(row.ponderation_nature ?? 1),
@@ -466,11 +449,7 @@ export async function createReclamation(lotId: string): Promise<{ total: number 
   return { total };
 }
 
-export interface ReclamationRecap {
-  total: number;
-  byLot: { lotId: string; lotName: string; total: number }[];
-  byType: { type: BienType; count: number; total: number }[];
-}
+export type { ReclamationRecap } from '@/lib/reclamation/recap';
 
 /** Recap of the réclamations carried for a profile: total dégrèvement grouped by
  *  lot, by bien type, and overall. Reads the biens already advanced to reclamation. */
@@ -483,28 +462,10 @@ export async function fetchReclamationRecap(fiscalProfileId: string): Promise<Re
     .in('statut', ['reclamation', 'remboursement']);
   if (error) throw error;
 
-  const lotMap = new Map<string, { lotName: string; total: number }>();
-  const typeMap = new Map<BienType, { count: number; total: number }>();
-  let total = 0;
-
-  for (const row of data ?? []) {
-    const amount = Number(row.degrevement_estime ?? 0);
-    total += amount;
-    const lotName = (row.lots as unknown as { name: string }).name;
-    const lot = lotMap.get(row.lot_id) ?? { lotName, total: 0 };
-    lot.total += amount;
-    lotMap.set(row.lot_id, lot);
-    const type = natureToType(row.nature);
-    const t = typeMap.get(type) ?? { count: 0, total: 0 };
-    t.count += 1;
-    t.total += amount;
-    typeMap.set(type, t);
-  }
-
-  const round = (n: number) => Math.round(n * 100) / 100;
-  return {
-    total: round(total),
-    byLot: [...lotMap.entries()].map(([lotId, v]) => ({ lotId, lotName: v.lotName, total: round(v.total) })),
-    byType: [...typeMap.entries()].map(([type, v]) => ({ type, count: v.count, total: round(v.total) })),
-  };
+  return aggregateReclamationRecap((data ?? []).map((row) => ({
+    lotId: row.lot_id,
+    lotName: (row.lots as unknown as { name: string }).name,
+    type: natureToType(row.nature),
+    amount: Number(row.degrevement_estime ?? 0),
+  })));
 }
