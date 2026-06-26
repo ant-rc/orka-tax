@@ -182,8 +182,6 @@ export default function AnomaliesPanel() {
         searchValue={search}
         onSearchChange={setSearch}
         onImport={() => setImportOpen(true)}
-        count={filtered.length}
-        total={biens.length}
       />
       <FilterChips
         fields={BIEN_FIELDS}

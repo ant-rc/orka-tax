@@ -8,8 +8,6 @@ interface PanelToolbarProps {
   onSearchChange: (v: string) => void;
   onPrimary?: () => void;
   onImport: () => void;
-  count: number;
-  total: number;
   onReclamation?: () => void;
   reclamationLabel?: string;
   reclamationDisabled?: boolean;
@@ -21,8 +19,6 @@ export default function PanelToolbarAnomalies({
   onSearchChange,
   onPrimary,
   onImport,
-  count,
-  total,
   onReclamation,
   reclamationLabel = 'Générer ma réclamation',
   reclamationDisabled = false,

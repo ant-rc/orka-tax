@@ -67,7 +67,6 @@ export default function LotsPanel() {
   const [sort, setSort] = useState<{ key: string; dir: 'asc' | 'desc' } | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pageSize, setPageSize] = useState(10);
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [lots, setLots] = useState<Lot[]>([]);
   const [createOpen, setCreateOpen] = useState(false);

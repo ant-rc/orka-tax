@@ -13,7 +13,7 @@ export function createClient() {
 }
 
 /** Single-tenant demo organization (seeded in migration 0002). */
-export const DEMO_ORG_ID = 'aaaaaaaa-0000-0000-0000-000000000001';
+const DEMO_ORG_ID = 'aaaaaaaa-0000-0000-0000-000000000001';
 
 /**
  * Resolve the organization the user is working in. The identification page
