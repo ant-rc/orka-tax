@@ -1,12 +1,11 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { ArrowDownUp, ArrowUp, ArrowDown, ChevronDown, Trash2 } from 'lucide-react';
 import { BIEN_TYPES, BIEN_TYPE_ICON, type Bien, type BienType } from '@/lib/domain/property';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
-import { bulkUpdateBiens, recomputeBiens, createReclamation } from '@/lib/supabase/queries';
+import { deleteBien, simulateBiens, bulkUpdateBiens, recomputeBiens } from '@/lib/supabase/queries';
 import BulkEditModal, { type BulkEditBien } from '@/components/dashboard/bulk-edit-modal';
 import { bienSignature, type ComparableValues } from '@/lib/domain/comparable';
 import PanelToolbar from '@/components/dashboard/panel-toolbar';
@@ -17,15 +16,12 @@ import Modal from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import { useSelection } from '@/components/dashboard/selection-context';
 import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
-import BienPreviewModal from '@/components/dashboard/bien-preview-modal';
+import BienPreviewModal, { type PreviewBien } from '@/components/dashboard/bien-preview-modal';
 import { parseImportFile } from '@/lib/import/client';
 import { diffBiensAgainstImport } from '@/lib/import/diff';
 import { createClient, getActiveOrgId } from '@/lib/supabase/client';
-import { deleteBien, simulateBiens } from '@/lib/supabase/queries';
-// (deleteBien/simulateBiens pulled in here; bulkUpdateBiens/recomputeBiens/createReclamation above)
 import { dbBienToBien, BIEN_DISPLAY_COLUMNS } from '@/lib/biens/display';
 import ImportModal from '@/components/ui/import-modal';
-import type { Database } from '@/lib/supabase/types';
 
 /** "28m2" / "28 m²" / "28" → 28 (numérique, pour la colonne surface_m2). */
 function parseSurface(raw: string): number | null {
@@ -51,7 +47,6 @@ const BIEN_ACCESSORS: Record<string, (b: Bien) => string> = {
 
 export default function BiensPanel({ lotId }: { lotId: string }) {
   const toast = useToast();
-  const router = useRouter();
   const { setSelectedCount, setGenerateReady, registerGenerate, setAnomalieCount } = useSelection();
 
   const [search, setSearch] = useState('');
@@ -68,7 +63,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Bien | null>(null);
   const [editOpen, setEditOpen] = useState(false);
-  const [previewTarget, setPreviewTarget] = useState<Bien | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [comparableMap, setComparableMap] = useState<Map<string, ComparableValues>>(new Map());
 
   // Add form state
@@ -140,6 +135,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
   }, [lotId, toast]);
 
   // Register generate action ("Générer mon rapport") with the selection context.
+  // The report covers the whole lot, not just the current selection.
   const handleGenerate = useCallback(async () => {
     const ids = biens.map((b) => b.id);
     if (!ids.length) return;
@@ -285,8 +281,14 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
 
   // Read-only preview (no edit) — editing is done via the "Édition" button.
   const handleVoir = useCallback((bien: Bien) => {
-    setPreviewTarget(bien);
-  }, []);
+    const i = sorted.findIndex((b) => b.id === bien.id);
+    if (i >= 0) setPreviewIndex(i);
+  }, [sorted]);
+
+  const previewItems = useMemo<PreviewBien[]>(
+    () => sorted.map((b) => ({ bien: b, values: comparableMap.get(b.id) ?? null })),
+    [sorted, comparableMap],
+  );
 
   const resetAddForm = useCallback(() => {
     setNewType('Appartement');
@@ -692,12 +694,13 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
         }}
       />
 
-      {/* Read-only bien preview */}
+      {/* Read-only bien preview with prev/next navigation */}
       <BienPreviewModal
-        open={!!previewTarget}
-        bien={previewTarget}
-        values={previewTarget ? comparableMap.get(previewTarget.id) ?? null : null}
-        onClose={() => setPreviewTarget(null)}
+        open={previewIndex !== null}
+        items={previewItems}
+        index={previewIndex ?? 0}
+        onIndexChange={setPreviewIndex}
+        onClose={() => setPreviewIndex(null)}
       />
     </div>
   );

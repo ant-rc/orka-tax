@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowDownUp, ArrowUp, ArrowDown, ChevronRight, ChevronDown, Trash2 } from 'lucide-react';
+import { ArrowDownUp, ArrowUp, ArrowDown, ChevronRight, ChevronDown, Trash2, RotateCcw } from 'lucide-react';
 import { type Lot } from '@/lib/domain/property';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
@@ -16,7 +16,7 @@ import { useFiscalProfile } from '@/components/dashboard/fiscal-profile-context'
 import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
 import { buildImportedLot, parseImportFile, rowsToBiens } from '@/lib/import/client';
 import { createClient, getActiveOrgId } from '@/lib/supabase/client';
-import { deleteLot, fetchBienIdsByLots, fetchTunnelProgress, simulateBiens } from '@/lib/supabase/queries';
+import { deleteLot, fetchBienIdsByLots, fetchTunnelProgress, resetProfileToFisc, simulateBiens } from '@/lib/supabase/queries';
 import type { Database } from '@/lib/supabase/types';
 import ImportModal from '@/components/ui/import-modal';
 
@@ -76,6 +76,9 @@ export default function LotsPanel() {
   const [importing, setImporting] = useState(false);
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Lot | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Create form state
   const [newName, setNewName] = useState('');
@@ -100,7 +103,7 @@ export default function LotsPanel() {
       setLots((data ?? []).map(dbLotToLot));
     })();
     return () => { active = false; };
-  }, [activeProfileId, toast]);
+  }, [activeProfileId, toast, refreshKey]);
 
   // Expose the selection count to the BottomBar ("Générer mon rapport").
   useEffect(() => {
@@ -135,6 +138,24 @@ export default function LotsPanel() {
     registerGenerate(handleGenerate);
     return () => registerGenerate(null);
   }, [handleGenerate, registerGenerate]);
+
+  // Reset every bien of the profile back to its FISC reference (demo replay).
+  const handleReset = useCallback(async () => {
+    if (!activeProfileId) return;
+    setResetting(true);
+    try {
+      await resetProfileToFisc(activeProfileId);
+      setSelected(new Set());
+      setSelectedCount(0);
+      setRefreshKey((k) => k + 1);
+      toast('Valeurs réinitialisées aux données du FISC', 'success');
+    } catch {
+      toast('Échec de la réinitialisation', 'error');
+    } finally {
+      setResetting(false);
+      setResetOpen(false);
+    }
+  }, [activeProfileId, setSelectedCount, toast]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -324,6 +345,17 @@ export default function LotsPanel() {
         onImport={() => setImportOpen(true)}
         count={filtered.length}
         total={lots.length}
+        extraActions={
+          <button
+            onClick={() => setResetOpen(true)}
+            disabled={lots.length === 0 || resetting}
+            title="Remettre tous les biens du profil aux valeurs d'origine du FISC"
+            className="border border-ui-border rounded-md px-3 py-2 text-sm flex items-center gap-1.5 text-ui-text hover:bg-ui-bg-elevated transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <RotateCcw size={14} />
+            Réinitialiser les valeurs
+          </button>
+        }
       />
       <FilterChips
         fields={LOT_FIELDS}
@@ -499,6 +531,35 @@ export default function LotsPanel() {
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDeleteConfirm}
       />
+
+      {/* Reset values confirmation */}
+      <Modal
+        open={resetOpen}
+        onClose={() => setResetOpen(false)}
+        title="Réinitialiser les valeurs"
+        footer={
+          <>
+            <button
+              onClick={() => setResetOpen(false)}
+              className="border border-ui-border rounded-md px-4 py-2 text-sm text-ui-text hover:bg-ui-bg-elevated transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              onClick={handleReset}
+              disabled={resetting}
+              className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {resetting ? 'Réinitialisation…' : 'Réinitialiser'}
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm text-ui-text-muted">
+          Tous les biens de ce profil reviennent à leurs valeurs d&apos;origine (données du FISC)
+          et repassent au statut « importé ». Les réclamations générées sont supprimées.
+        </p>
+      </Modal>
 
       {/* Create modal */}
       <Modal

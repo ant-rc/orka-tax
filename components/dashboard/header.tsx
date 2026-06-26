@@ -12,7 +12,7 @@ export default function Header() {
       <div className="flex items-center gap-3">
         <h1 className="text-2xl font-medium text-black">Mon avis de taxe foncière</h1>
         <span className="bg-badge-warning-bg text-badge-warning-text rounded-md px-2 py-1 text-sm font-medium">
-          Vérification gratuite
+          Vérification gratuite jusqu'à juillet 2026
         </span>
       </div>
       <div className="flex items-center gap-3">

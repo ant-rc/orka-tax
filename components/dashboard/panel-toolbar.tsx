@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { Search, Download, Plus } from 'lucide-react';
 
 interface PanelToolbarProps {
@@ -10,6 +11,7 @@ interface PanelToolbarProps {
   onImport: () => void;
   count: number;
   total: number;
+  extraActions?: ReactNode;
 }
 
 export default function PanelToolbar({
@@ -20,6 +22,7 @@ export default function PanelToolbar({
   onImport,
   count,
   total,
+  extraActions,
 }: PanelToolbarProps) {
   return (
     <div className="p-5 flex items-center justify-between gap-4 flex-wrap">
@@ -30,6 +33,7 @@ export default function PanelToolbar({
         </span>
       </div>
       <div className="flex items-center gap-2 flex-wrap">
+        {extraActions}
         <div className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ui-text-dimmed" />
           <input

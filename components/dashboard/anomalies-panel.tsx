@@ -105,6 +105,7 @@ export default function AnomaliesPanel() {
     });
   }, [biens, search, filters, filterAnomalieOnly]);
 
+  // Group the filtered anomaly biens by lot.
   const groups = useMemo<LotGroup[]>(() => {
     const map = new Map<string, LotGroup>();
     for (const b of filtered) {
@@ -151,7 +152,7 @@ export default function AnomaliesPanel() {
   }, [deleteTarget, toast]);
 
   const handleVoir = useCallback((bien: AnomalyBien) => {
-    router.push('/lot/' + bien.lotId + '/vos-biens/' + bien.id);
+    router.push(`/lot/${bien.lotId}/vos-biens/${bien.id}`);
   }, [router]);
 
   const handleGenererReclamation = useCallback(async (lotId: string, lotName: string) => {
@@ -159,7 +160,7 @@ export default function AnomaliesPanel() {
     try {
       const { total } = await createReclamation(lotId);
       toast(`Réclamation générée pour ${lotName} (${total} €)`, 'success');
-      await load();
+      await load(); // reclaimed biens leave the anomalies screen
     } catch {
       toast('Échec de la génération de la réclamation', 'error');
     } finally {

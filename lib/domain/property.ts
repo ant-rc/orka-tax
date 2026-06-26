@@ -42,6 +42,7 @@ export interface Bien {
   reference: string;
   surface: string;
   etage: string;
+  address?: string;
   statut: BienStatut;
   hasAnomaly: boolean;
   anomalies: FieldAnomaly[];
