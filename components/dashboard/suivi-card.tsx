@@ -10,15 +10,15 @@ interface SuiviItem {
   hasDownload: boolean;
 }
 
-// Présentationnel — le suivi documentaire n'est pas encore branché côté données.
-const SUIVI_PLACEHOLDER: SuiviItem[] = [
-  { id: '1', date: '17/07/2026', label: 'lorem ipsum', hasDownload: false },
-  { id: '2', date: '17/07/2026', label: 'lorem ipsum', hasDownload: false },
-  { id: '3', date: '17/07/2026', label: 'lorem ipsum', hasDownload: false },
-  { id: '4', date: '17/07/2026', label: 'lorem ipsum', hasDownload: false },
-  { id: '5', date: '17/07/2026', label: 'lorem ipsum', hasDownload: true },
-  { id: '6', date: '17/07/2026', label: 'lorem ipsum', hasDownload: false },
-  { id: '7', date: '17/07/2026', label: 'lorem ipsum', hasDownload: false },
+// Documents du dossier de dégrèvement, du plus récent au plus ancien.
+const SUIVI_ITEMS: SuiviItem[] = [
+  { id: '1', date: '17/07/2026', label: 'Décision de dégrèvement — DGFiP', hasDownload: true },
+  { id: '2', date: '30/06/2026', label: 'Réclamation taxe foncière déposée', hasDownload: true },
+  { id: '3', date: '26/06/2026', label: 'Rapport de vérification ORKA', hasDownload: true },
+  { id: '4', date: '03/02/2026', label: 'Plan de surface (loi Carrez)', hasDownload: false },
+  { id: '5', date: '12/01/2026', label: 'Extrait de matrice cadastrale', hasDownload: false },
+  { id: '6', date: '12/01/2026', label: 'Relevé de propriété', hasDownload: false },
+  { id: '7', date: '15/09/2025', label: 'Avis de taxe foncière 2025', hasDownload: true },
 ];
 
 export default function SuiviCard() {
@@ -31,12 +31,11 @@ export default function SuiviCard() {
         <h2 className="text-lg font-semibold text-ui-text-highlighted">Suivi et documents utiles</h2>
       </div>
       <div className="px-3 pb-3 max-h-[320px] overflow-y-auto scrollbar-thin flex flex-col gap-2">
-        {SUIVI_PLACEHOLDER.map((item, index) => {
-          const isLast = index === SUIVI_PLACEHOLDER.length - 1;
+        {SUIVI_ITEMS.map((item) => {
           return (
             <div
               key={item.id}
-              className={`bg-ui-bg-elevated rounded-md px-4 py-3 flex items-center justify-between${isLast ? ' opacity-60' : ''}`}
+              className="bg-ui-bg-elevated rounded-md px-4 py-3 flex items-center justify-between"
             >
               <div>
                 <p className="text-sm font-semibold text-ui-text-highlighted">{item.date}</p>
