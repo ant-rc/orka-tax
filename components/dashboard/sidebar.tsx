@@ -9,7 +9,10 @@ export default function Sidebar() {
   const pathname = usePathname();
   const toast = useToast();
 
-  const dashboardActive = pathname.startsWith('/dashboard') || pathname.startsWith('/lot');
+  // Distinct active states so a single nav icon is highlighted at a time:
+  // the grid owns the dashboard overview, the folder owns a lot's biens.
+  const dashboardActive = pathname.startsWith('/dashboard');
+  const lotsActive = pathname.startsWith('/lot');
   const anomaliesActive = pathname.startsWith('/manage-anomalies');
   const reclamationsActive = pathname.startsWith('/results-reclamations');
 
@@ -36,7 +39,7 @@ export default function Sidebar() {
         <Link
           href="/dashboard"
           className={`size-10 flex items-center justify-center rounded-md transition-colors ${
-            dashboardActive
+            lotsActive
               ? 'bg-vert-400 text-cyprus-900'
               : 'text-white/60 hover:text-white hover:bg-white/10'
           }`}

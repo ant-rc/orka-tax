@@ -325,6 +325,18 @@ export async function simulateBiens(bienIds: string[]): Promise<void> {
   }
 }
 
+/** Total estimated dégrèvement across all biens of a profile (signed gain/loss). */
+export async function fetchProfileDegrevement(fiscalProfileId: string): Promise<number> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('biens')
+    .select('degrevement_estime, lots!inner(fiscal_profile_id)')
+    .eq('lots.fiscal_profile_id', fiscalProfileId);
+  if (error) throw error;
+  const total = (data ?? []).reduce((s, b) => s + Number(b.degrevement_estime ?? 0), 0);
+  return Math.round(total * 100) / 100;
+}
+
 /** Tunnel progress for a profile: total biens and how many are still untreated
  *  ("importe"). Gates "Générer mon rapport" on the dashboard. */
 export async function fetchTunnelProgress(
