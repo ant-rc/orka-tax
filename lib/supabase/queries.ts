@@ -296,14 +296,24 @@ function pickComparable(row: Record<string, unknown>): ComparableValues {
 export async function recomputeBiens(bienIds: string[]): Promise<{ anomalies: number }> {
   if (bienIds.length === 0) return { anomalies: 0 };
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from('biens')
-    .select('id, fisc_snapshot, ponderation_nature, categorie, coeff_entretien, coeff_situation_particuliere, coeff_situation_generale, depcom, etage, surface_m2, nb_pieces, nb_wc, nb_baignoires, nb_douches, nb_bidets, nb_eviers, ascenseur, eau_courante, gaz, electricite')
-    .in('id', bienIds);
+  const [{ data, error }, { data: fiscData, error: fiscError }] = await Promise.all([
+    supabase
+      .from('biens')
+      .select('id, ponderation_nature, categorie, coeff_entretien, coeff_situation_particuliere, coeff_situation_generale, depcom, etage, surface_m2, nb_pieces, nb_wc, nb_baignoires, nb_douches, nb_bidets, nb_eviers, ascenseur, eau_courante, gaz, electricite')
+      .in('id', bienIds),
+    supabase
+      .from('biens_fisc')
+      .select('bien_id, surface_m2, nb_pieces, nb_wc, nb_baignoires, nb_douches, nb_bidets, nb_eviers, ascenseur, eau_courante, gaz, electricite')
+      .in('bien_id', bienIds),
+  ]);
   if (error) throw error;
+  if (fiscError) throw fiscError;
+  const fiscById = new Map<string, ComparableValues>(
+    (fiscData ?? []).map((r) => [r.bien_id, pickComparable(r as Record<string, unknown>)]),
+  );
   const results = await Promise.all((data ?? []).map(async (row) => {
     const evalResult = evaluateBien({
-      fisc: (row.fisc_snapshot as ComparableValues) ?? pickComparable(row),
+      fisc: fiscById.get(row.id) ?? pickComparable(row),
       working: pickComparable(row),
       ponderation_nature: Number(row.ponderation_nature ?? 1),
       categorie: String(row.categorie ?? ''),

@@ -190,6 +190,62 @@ export type Database = {
           },
         ]
       }
+      biens_fisc: {
+        Row: {
+          ascenseur: boolean | null
+          bien_id: string
+          created_at: string
+          eau_courante: boolean | null
+          electricite: boolean | null
+          gaz: boolean | null
+          nb_baignoires: number | null
+          nb_bidets: number | null
+          nb_douches: number | null
+          nb_eviers: number | null
+          nb_pieces: number | null
+          nb_wc: number | null
+          surface_m2: number | null
+        }
+        Insert: {
+          ascenseur?: boolean | null
+          bien_id: string
+          created_at?: string
+          eau_courante?: boolean | null
+          electricite?: boolean | null
+          gaz?: boolean | null
+          nb_baignoires?: number | null
+          nb_bidets?: number | null
+          nb_douches?: number | null
+          nb_eviers?: number | null
+          nb_pieces?: number | null
+          nb_wc?: number | null
+          surface_m2?: number | null
+        }
+        Update: {
+          ascenseur?: boolean | null
+          bien_id?: string
+          created_at?: string
+          eau_courante?: boolean | null
+          electricite?: boolean | null
+          gaz?: boolean | null
+          nb_baignoires?: number | null
+          nb_bidets?: number | null
+          nb_douches?: number | null
+          nb_eviers?: number | null
+          nb_pieces?: number | null
+          nb_wc?: number | null
+          surface_m2?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "biens_fisc_bien_id_fkey"
+            columns: ["bien_id"]
+            isOneToOne: true
+            referencedRelation: "biens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       column_mappings: {
         Row: {
           batch_id: string | null
