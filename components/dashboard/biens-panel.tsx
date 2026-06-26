@@ -190,6 +190,12 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
     };
   }), [biens, comparableMap]);
 
+  // Only the biens checked in the table feed the bulk-edit modal.
+  const selectedBulkBiens = useMemo(
+    () => bulkBiens.filter((b) => selected.has(b.id)),
+    [bulkBiens, selected],
+  );
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
 
@@ -432,7 +438,9 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
         </div>
         <button
           onClick={() => setEditOpen(true)}
-          className="border border-ui-border rounded-md px-3 py-2 text-sm flex items-center gap-1.5 text-ui-text hover:bg-ui-bg-elevated transition-colors shrink-0"
+          disabled={selected.size === 0}
+          title={selected.size === 0 ? 'Sélectionnez au moins un bien' : undefined}
+          className="border border-ui-border rounded-md px-3 py-2 text-sm flex items-center gap-1.5 text-ui-text hover:bg-ui-bg-elevated transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Édition
         </button>
@@ -756,7 +764,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
       {/* Bulk edit modal */}
       <BulkEditModal
         open={editOpen}
-        biens={bulkBiens}
+        biens={selectedBulkBiens}
         onClose={() => setEditOpen(false)}
         onApply={async (ids, patch) => {
           await bulkUpdateBiens(ids, patch);
