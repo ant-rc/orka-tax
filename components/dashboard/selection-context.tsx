@@ -9,6 +9,7 @@ interface SelectionContextValue {
   setGenerateReady: (ready: boolean) => void;
   registerGenerate: (fn: (() => Promise<void>) | null) => void;
   runGenerate: () => Promise<void>;
+  /** Number of biens flagged as anomalie (unlocks redirect to anomalies page). */
   anomalieCount: number;
   setAnomalieCount: (count: number) => void;
 }

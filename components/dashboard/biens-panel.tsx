@@ -351,10 +351,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
           .update({ statut: 'anomalie' })
           .in('id', ids);
         if (updateErr) throw new Error(updateErr.message);
-      }
-
-      if (diffs.length > 0) {
-        await recomputeBiens(diffs.map((d) => d.bienId));
+        await recomputeBiens(ids);
       }
 
       await loadBiens();

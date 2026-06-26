@@ -157,7 +157,7 @@ export default function AnomaliesPanel() {
     setGeneratingLot(lotId);
     try {
       const { total } = await createReclamation(lotId);
-      toast('Réclamation générée pour ' + lotName + ' (' + total + ' €)', 'success');
+      toast(`Réclamation générée pour ${lotName} (${total} €)`, 'success');
       await load();
     } catch {
       toast('Échec de la génération de la réclamation', 'error');
@@ -168,8 +168,7 @@ export default function AnomaliesPanel() {
 
   const handleImportConfirm = useCallback(() => {
     setImportOpen(false);
-    toast('Import simulé — pipeline à brancher');
-  }, [toast]);
+  }, []);
 
   const montant = biens.reduce((s, b) => s + Math.max(0, b.degrevement), 0);
   const rate = totalBiens > 0 ? (biens.length / totalBiens) * 100 : 0;
