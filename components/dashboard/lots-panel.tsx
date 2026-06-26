@@ -13,10 +13,11 @@ import Modal from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import { useSelection } from '@/components/dashboard/selection-context';
 import { useFiscalProfile } from '@/components/dashboard/fiscal-profile-context';
+import { useDashboardSummary } from '@/components/dashboard/dashboard-summary-context';
 import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
 import { buildImportedLot, parseImportFile, rowsToBiens } from '@/lib/import/client';
 import { createClient, getActiveOrgId } from '@/lib/supabase/client';
-import { deleteLot, fetchBienIdsByLots, fetchTunnelProgress, resetProfileToFisc, simulateBiens } from '@/lib/supabase/queries';
+import { deleteLot, fetchBienIdsByLots, resetProfileToFisc, simulateBiens } from '@/lib/supabase/queries';
 import type { Database } from '@/lib/supabase/types';
 import ImportModal from '@/components/ui/import-modal';
 
@@ -61,6 +62,7 @@ export default function LotsPanel() {
   const toast = useToast();
   const { setSelectedCount, setGenerateReady, registerGenerate } = useSelection();
   const { activeProfileId } = useFiscalProfile();
+  const { summary, refresh: refreshSummary } = useDashboardSummary();
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<ActiveFilter[]>([]);
@@ -110,15 +112,10 @@ export default function LotsPanel() {
   }, [selected, setSelectedCount]);
 
   // "Générer mon rapport" stays disabled until every bien of the profile has
-  // left the "importe" state. Recomputed whenever the portfolio reloads.
+  // left the "importe" state (derived from the shared dashboard summary).
   useEffect(() => {
-    if (!activeProfileId) { setGenerateReady(false); return; }
-    let active = true;
-    fetchTunnelProgress(activeProfileId)
-      .then(({ total, untreated }) => { if (active) setGenerateReady(total > 0 && untreated === 0); })
-      .catch(() => { if (active) setGenerateReady(false); });
-    return () => { active = false; };
-  }, [activeProfileId, lots, setGenerateReady]);
+    setGenerateReady(summary ? summary.biens > 0 && summary.untreated === 0 : false);
+  }, [summary, setGenerateReady]);
 
   // Reset the shared state when leaving this screen.
   useEffect(() => () => { setSelectedCount(0); setGenerateReady(false); }, [setSelectedCount, setGenerateReady]);
@@ -131,7 +128,8 @@ export default function LotsPanel() {
     await simulateBiens(ids);
     setSelected(new Set());
     setSelectedCount(0);
-  }, [lots, setSelectedCount]);
+    refreshSummary();
+  }, [lots, setSelectedCount, refreshSummary]);
 
   useEffect(() => {
     registerGenerate(handleGenerate);
@@ -147,6 +145,7 @@ export default function LotsPanel() {
       setSelected(new Set());
       setSelectedCount(0);
       setRefreshKey((k) => k + 1);
+      refreshSummary();
       toast('Valeurs réinitialisées aux données du FISC', 'success');
     } catch {
       toast('Échec de la réinitialisation', 'error');
@@ -154,7 +153,7 @@ export default function LotsPanel() {
       setResetting(false);
       setResetOpen(false);
     }
-  }, [activeProfileId, setSelectedCount, toast]);
+  }, [activeProfileId, setSelectedCount, toast, refreshSummary]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();

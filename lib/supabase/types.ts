@@ -573,6 +573,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_bien_evaluations: { Args: { p_rows: Json }; Returns: undefined }
+      dashboard_summary: {
+        Args: { p_profile: string }
+        Returns: {
+          biens: number
+          degrevement: number
+          lots: number
+          untreated: number
+        }[]
+      }
       reset_profile_to_fisc: { Args: { p_profile: string }; Returns: undefined }
     }
     Enums: {

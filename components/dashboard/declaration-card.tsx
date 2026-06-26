@@ -1,23 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Hash, Home, MapPin } from 'lucide-react';
 import { useFiscalProfile } from '@/components/dashboard/fiscal-profile-context';
-import { fetchDeclarationCounts } from '@/lib/supabase/queries';
+import { useDashboardSummary } from '@/components/dashboard/dashboard-summary-context';
 
 export default function DeclarationCard() {
   const { activeProfile } = useFiscalProfile();
-  const [counts, setCounts] = useState<{ lots: number; biens: number } | null>(null);
-
-  useEffect(() => {
-    if (!activeProfile) { setCounts(null); return; }
-    let active = true;
-    setCounts(null);
-    fetchDeclarationCounts(activeProfile.id)
-      .then((c) => { if (active) setCounts(c); })
-      .catch(() => { if (active) setCounts({ lots: 0, biens: 0 }); });
-    return () => { active = false; };
-  }, [activeProfile]);
+  const { summary } = useDashboardSummary();
+  const counts = summary ? { lots: summary.lots, biens: summary.biens } : null;
 
   return (
     <div className="bg-white rounded-lg border border-ui-border p-5">

@@ -215,34 +215,26 @@ export async function simulateBiens(bienIds: string[]): Promise<void> {
   }
 }
 
-/** Total estimated dégrèvement across all biens of a profile (signed gain/loss). */
-export async function fetchProfileDegrevement(fiscalProfileId: string): Promise<number> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('biens')
-    .select('degrevement_estime, lots!inner(fiscal_profile_id)')
-    .eq('lots.fiscal_profile_id', fiscalProfileId);
-  if (error) throw error;
-  const total = (data ?? []).reduce((s, b) => s + Number(b.degrevement_estime ?? 0), 0);
-  return Math.round(total * 100) / 100;
+export interface DashboardSummary {
+  lots: number;
+  biens: number;
+  untreated: number;
+  degrevement: number;
 }
 
-/** Tunnel progress for a profile: total biens and how many are still untreated
- *  ("importe"). Gates "Générer mon rapport" on the dashboard. */
-export async function fetchTunnelProgress(
-  fiscalProfileId: string,
-): Promise<{ total: number; untreated: number }> {
+/** All dashboard aggregates for a profile in a single round-trip: lots/biens
+ *  counts, untreated ("importe") count, and total estimated dégrèvement. */
+export async function fetchDashboardSummary(fiscalProfileId: string): Promise<DashboardSummary> {
   const supabase = createClient();
-  const [totalRes, untreatedRes] = await Promise.all([
-    supabase.from('biens').select('id, lots!inner(fiscal_profile_id)', { count: 'exact', head: true })
-      .eq('lots.fiscal_profile_id', fiscalProfileId),
-    supabase.from('biens').select('id, lots!inner(fiscal_profile_id)', { count: 'exact', head: true })
-      .eq('lots.fiscal_profile_id', fiscalProfileId)
-      .eq('statut', 'importe'),
-  ]);
-  if (totalRes.error) throw totalRes.error;
-  if (untreatedRes.error) throw untreatedRes.error;
-  return { total: totalRes.count ?? 0, untreated: untreatedRes.count ?? 0 };
+  const { data, error } = await supabase.rpc('dashboard_summary', { p_profile: fiscalProfileId });
+  if (error) throw error;
+  const row = data?.[0];
+  return {
+    lots: row?.lots ?? 0,
+    biens: row?.biens ?? 0,
+    untreated: row?.untreated ?? 0,
+    degrevement: Number(row?.degrevement ?? 0),
+  };
 }
 
 /** Demo: reset every bien of the profile to its FISC reference + "importe", and
@@ -318,7 +310,8 @@ export async function recomputeBiens(bienIds: string[]): Promise<{ anomalies: nu
   const fiscById = new Map<string, ComparableValues>(
     (fiscData ?? []).map((r) => [r.bien_id, pickComparable(r as Record<string, unknown>)]),
   );
-  const results = await Promise.all((data ?? []).map(async (row) => {
+  // Compute each evaluation locally, then persist them all in one UPDATE (RPC).
+  const evaluations = (data ?? []).map((row) => {
     const evalResult = evaluateBien({
       fisc: fiscById.get(row.id) ?? pickComparable(row),
       working: pickComparable(row),
@@ -330,17 +323,21 @@ export async function recomputeBiens(bienIds: string[]): Promise<{ anomalies: nu
       depcom: (row.depcom as string | null) ?? null,
       etage: (row.etage as string | null) ?? null,
     });
-    const isAnomaly = evalResult.anomalies.length > 0;
-    const { error: upErr } = await supabase.from('biens').update({
+    return {
+      id: row.id,
       statut: evalResult.statut,
-      has_anomaly: isAnomaly,
-      anomalies: evalResult.anomalies as unknown as Json,
-      degrevement_estime: evalResult.degrevement,
-    }).eq('id', row.id);
-    if (upErr) throw upErr;
-    return isAnomaly;
-  }));
-  return { anomalies: results.filter(Boolean).length };
+      has_anomaly: evalResult.anomalies.length > 0,
+      anomalies: evalResult.anomalies,
+      degrevement: evalResult.degrevement,
+    };
+  });
+  if (evaluations.length > 0) {
+    const { error: applyErr } = await supabase.rpc('apply_bien_evaluations', {
+      p_rows: evaluations as unknown as Json,
+    });
+    if (applyErr) throw applyErr;
+  }
+  return { anomalies: evaluations.filter((e) => e.has_anomaly).length };
 }
 
 export async function bulkUpdateBiens(

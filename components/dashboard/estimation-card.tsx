@@ -1,21 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useFiscalProfile } from '@/components/dashboard/fiscal-profile-context';
-import { fetchProfileDegrevement } from '@/lib/supabase/queries';
+import { useDashboardSummary } from '@/components/dashboard/dashboard-summary-context';
 
 export default function EstimationCard() {
-  const { activeProfileId } = useFiscalProfile();
-  const [degrevement, setDegrevement] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!activeProfileId) { setDegrevement(null); return; }
-    let active = true;
-    fetchProfileDegrevement(activeProfileId)
-      .then((v) => { if (active) setDegrevement(v); })
-      .catch(() => { if (active) setDegrevement(null); });
-    return () => { active = false; };
-  }, [activeProfileId]);
+  const { summary } = useDashboardSummary();
+  const degrevement = summary ? summary.degrevement : null;
 
   const positive = (degrevement ?? 0) >= 0;
   const label = degrevement === null
