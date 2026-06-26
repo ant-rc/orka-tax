@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { COMPARABLE_FIELDS, type ComparableField, type ComparableValues } from '@/lib/domain/comparable';
+import ConfirmBulkEditModal from '@/components/dashboard/confirm-bulk-edit-modal';
 
 export interface BulkEditBien {
   id: string;
@@ -49,6 +50,7 @@ export default function BulkEditModal({
   const [field, setField] = useState<ComparableField>(COMPARABLE_FIELDS[0]);
   const [rawValue, setRawValue] = useState<string>('');
   const [applying, setApplying] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Reset state when modal opens
   useEffect(() => {
@@ -57,6 +59,7 @@ export default function BulkEditModal({
       setField(COMPARABLE_FIELDS[0]);
       setRawValue('');
       setApplying(false);
+      setConfirmOpen(false);
     }
   }, [open]);
 
@@ -136,6 +139,7 @@ export default function BulkEditModal({
   };
 
   return (
+    <>
     <div
       className="fixed inset-0 bg-black/40 z-40 flex items-center justify-center p-4"
       onClick={onClose}
@@ -263,14 +267,23 @@ export default function BulkEditModal({
             Annuler
           </button>
           <button
-            onClick={handleApply}
+            onClick={() => setConfirmOpen(true)}
             disabled={checkedIds.size === 0 || applying || rawValue === ''}
             className="bg-vert-700 text-white rounded-lg px-2.5 py-1.5 text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {applying ? 'Application…' : 'Appliquer'}
+            Enregistrer
           </button>
         </div>
       </div>
     </div>
+
+    <ConfirmBulkEditModal
+      open={confirmOpen}
+      count={checkedIds.size}
+      applying={applying}
+      onClose={() => setConfirmOpen(false)}
+      onConfirm={handleApply}
+    />
+    </>
   );
 }
