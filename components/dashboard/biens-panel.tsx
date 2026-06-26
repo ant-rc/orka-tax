@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { ArrowDownUp, ArrowUp, ArrowDown, ChevronDown, Trash2 } from 'lucide-react';
 import { BIEN_TYPES, BIEN_TYPE_ICON, type Bien, type BienType } from '@/lib/domain/property';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
@@ -17,6 +16,7 @@ import Modal from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import { useSelection } from '@/components/dashboard/selection-context';
 import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
+import BienPreviewModal from '@/components/dashboard/bien-preview-modal';
 import { parseImportFile } from '@/lib/import/client';
 import { diffBiensAgainstImport } from '@/lib/import/diff';
 import { createClient, getActiveOrgId } from '@/lib/supabase/client';
@@ -67,6 +67,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Bien | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [previewTarget, setPreviewTarget] = useState<Bien | null>(null);
   const [comparableMap, setComparableMap] = useState<Map<string, ComparableValues>>(new Map());
 
   // Add form state
@@ -85,9 +86,9 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
     setAnomalieCount(biens.filter((b) => b.statut === 'anomalie').length);
   }, [biens, setAnomalieCount]);
 
-  // "Générer mon rapport" actif quand le lot a des biens.
+  // "Générer mon rapport" actif quand tous les biens ont quitté l'état "importe".
   useEffect(() => {
-    setGenerateReady(biens.length > 0);
+    setGenerateReady(biens.length > 0 && biens.every((b) => b.statut !== 'importe'));
   }, [biens, setGenerateReady]);
 
   // Reset au départ de cet écran.
@@ -281,9 +282,10 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
     }
   }, [deleteTarget, toast]);
 
-  const handleVoir = useCallback((bienId: string) => {
-    router.push(`/lot/${lotId}/vos-biens/${bienId}`);
-  }, [router, lotId]);
+  // Read-only preview (no edit) — editing is done via the "Édition" button.
+  const handleVoir = useCallback((bien: Bien) => {
+    setPreviewTarget(bien);
+  }, []);
 
   const resetAddForm = useCallback(() => {
     setNewType('Appartement');
@@ -527,7 +529,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
                         <Trash2 size={16} />
                       </button>
                       <button
-                        onClick={() => handleVoir(bien.id)}
+                        onClick={() => handleVoir(bien)}
                         className="bg-vert-400 text-vert-900 rounded-md px-4 py-1.5 text-sm font-medium hover:bg-vert-300 transition-colors"
                       >
                         Voir
@@ -687,6 +689,14 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
             toast('Aucune anomalie détectée', 'success');
           }
         }}
+      />
+
+      {/* Read-only bien preview */}
+      <BienPreviewModal
+        open={!!previewTarget}
+        bien={previewTarget}
+        values={previewTarget ? comparableMap.get(previewTarget.id) ?? null : null}
+        onClose={() => setPreviewTarget(null)}
       />
     </div>
   );

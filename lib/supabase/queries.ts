@@ -347,6 +347,24 @@ export async function simulateBiens(bienIds: string[]): Promise<void> {
   }
 }
 
+/** Tunnel progress for a profile: total biens and how many are still untreated
+ *  ("importe"). Gates "Générer mon rapport" on the dashboard. */
+export async function fetchTunnelProgress(
+  fiscalProfileId: string,
+): Promise<{ total: number; untreated: number }> {
+  const supabase = createClient();
+  const [totalRes, untreatedRes] = await Promise.all([
+    supabase.from('biens').select('id, lots!inner(fiscal_profile_id)', { count: 'exact', head: true })
+      .eq('lots.fiscal_profile_id', fiscalProfileId),
+    supabase.from('biens').select('id, lots!inner(fiscal_profile_id)', { count: 'exact', head: true })
+      .eq('lots.fiscal_profile_id', fiscalProfileId)
+      .eq('statut', 'importe'),
+  ]);
+  if (totalRes.error) throw totalRes.error;
+  if (untreatedRes.error) throw untreatedRes.error;
+  return { total: totalRes.count ?? 0, untreated: untreatedRes.count ?? 0 };
+}
+
 export async function fetchBienIdsByLots(lotIds: string[]): Promise<string[]> {
   if (lotIds.length === 0) return [];
   const supabase = createClient();
