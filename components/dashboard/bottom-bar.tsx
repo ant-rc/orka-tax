@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Save } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 import { useSelection } from '@/components/dashboard/selection-context';
 import ReportLoader from '@/components/dashboard/report-loader';
@@ -59,16 +58,9 @@ export default function BottomBar() {
         </span>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => toast('Modifications enregistrées', 'success')}
-            className="border border-ui-border rounded-md px-4 py-2 text-sm flex items-center gap-1.5 text-ui-text hover:bg-ui-bg-elevated transition-colors"
-          >
-            <Save size={16} />
-            Enregistrer
-          </button>
-          <button
             onClick={handleGenerate}
             disabled={!canGenerate}
-            title={canGenerate ? undefined : 'Aucun bien à traiter'}
+            title={canGenerate ? undefined : 'Tous les biens du lot doivent être traités'}
             className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors disabled:bg-ui-border disabled:text-ui-text-dimmed disabled:cursor-not-allowed disabled:hover:bg-ui-border"
             aria-label="Générer mon rapport"
           >

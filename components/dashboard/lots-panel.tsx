@@ -16,7 +16,7 @@ import { useFiscalProfile } from '@/components/dashboard/fiscal-profile-context'
 import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
 import { buildImportedLot, parseImportFile, rowsToBiens } from '@/lib/import/client';
 import { createClient, getActiveOrgId } from '@/lib/supabase/client';
-import { deleteLot, fetchBienIdsByLots, simulateBiens } from '@/lib/supabase/queries';
+import { deleteLot, fetchBienIdsByLots, fetchTunnelProgress, simulateBiens } from '@/lib/supabase/queries';
 import type { Database } from '@/lib/supabase/types';
 
 type BienInsert = Database['public']['Tables']['biens']['Insert'];
@@ -105,11 +105,16 @@ export default function LotsPanel() {
     setSelectedCount(selected.size);
   }, [selected, setSelectedCount]);
 
-  // "Générer mon rapport" runs the comparison over the whole portfolio, so it is
-  // enabled as soon as the profile has lots.
+  // "Générer mon rapport" stays disabled until every bien of the profile has
+  // left the "importe" state. Recomputed whenever the portfolio reloads.
   useEffect(() => {
-    setGenerateReady(lots.length > 0);
-  }, [lots, setGenerateReady]);
+    if (!activeProfileId) { setGenerateReady(false); return; }
+    let active = true;
+    fetchTunnelProgress(activeProfileId)
+      .then(({ total, untreated }) => { if (active) setGenerateReady(total > 0 && untreated === 0); })
+      .catch(() => { if (active) setGenerateReady(false); });
+    return () => { active = false; };
+  }, [activeProfileId, lots, setGenerateReady]);
 
   // Reset the shared state when leaving this screen.
   useEffect(() => () => { setSelectedCount(0); setGenerateReady(false); }, [setSelectedCount, setGenerateReady]);
