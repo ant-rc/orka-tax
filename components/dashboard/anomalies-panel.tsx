@@ -6,7 +6,7 @@ import { ArrowDownUp, ArrowUp, ArrowDown, ChevronDown, Trash2 } from 'lucide-rea
 import { BIEN_TYPE_ICON, type Bien } from '@/lib/domain/property';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
-import { fetchAnomalyBiensByProfile, deleteBien } from '@/lib/supabase/queries';
+import { fetchAnomalyBiensByProfile, fetchDeclarationCounts, deleteBien } from '@/lib/supabase/queries';
 import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
 import { useFiscalProfile } from '@/components/dashboard/fiscal-profile-context';
 import PanelToolbarAnomalies from '@/components/dashboard/panel-toolbar-anomalies';
@@ -46,6 +46,7 @@ export default function AnomaliesPanel() {
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
   const [biens, setBiens] = useState<Bien[]>([]);
+  const [totalBiens, setTotalBiens] = useState(0);
   const [loading, setLoading] = useState(true);
   const [importOpen, setImportOpen] = useState(false);
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
@@ -53,14 +54,17 @@ export default function AnomaliesPanel() {
 
   // Load biens for the active fiscal profile; reset view on switch.
   useEffect(() => {
-    if (!activeProfileId) { setBiens([]); setLoading(false); return; }
+    if (!activeProfileId) { setBiens([]); setTotalBiens(0); setLoading(false); return; }
     let active = true;
     setLoading(true);
     setPage(1);
     setFilters([]);
     setSelected(new Set());
-    fetchAnomalyBiensByProfile(activeProfileId)
-      .then((rows) => { if (active) setBiens(rows); })
+    Promise.all([
+      fetchAnomalyBiensByProfile(activeProfileId),
+      fetchDeclarationCounts(activeProfileId),
+    ])
+      .then(([rows, counts]) => { if (active) { setBiens(rows); setTotalBiens(counts.biens); } })
       .catch(() => { if (active) toast('Impossible de charger les biens', 'error'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -169,11 +173,11 @@ export default function AnomaliesPanel() {
   }, [toast]);
 
   const montant = biens.reduce((s, b) => s + Math.max(0, b.degrevement), 0);
-  const total = biens.length;
+  const rate = totalBiens > 0 ? (biens.length / totalBiens) * 100 : 0;
 
   return (
     <div className="flex flex-col">
-      <StatsbarAnomalies count={biens.length} rate={total ? 100 : 0} montant={montant} />
+      <StatsbarAnomalies count={biens.length} rate={rate} montant={montant} />
       <PanelToolbarAnomalies
         searchValue={search}
         onSearchChange={setSearch}
