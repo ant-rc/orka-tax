@@ -5,11 +5,11 @@ import type { Database } from '@/lib/supabase/types';
 /** Colonnes de `biens` nécessaires à l'affichage en liste / fiche. */
 export type BienDisplayRow = Pick<
   Database['public']['Tables']['biens']['Row'],
-  'id' | 'lot_id' | 'invariant_cadastral' | 'nature' | 'surface_m2' | 'etage' | 'statut' | 'has_anomaly' | 'fisc_snapshot' | 'anomalies' | 'degrevement_estime'
+  'id' | 'lot_id' | 'invariant_cadastral' | 'nature' | 'surface_m2' | 'etage' | 'statut' | 'has_anomaly' | 'anomalies' | 'degrevement_estime'
 >;
 
 export const BIEN_DISPLAY_COLUMNS =
-  'id, lot_id, invariant_cadastral, nature, surface_m2, etage, statut, has_anomaly, fisc_snapshot, anomalies, degrevement_estime';
+  'id, lot_id, invariant_cadastral, nature, surface_m2, etage, statut, has_anomaly, anomalies, degrevement_estime';
 
 /** Déduit le type d'affichage à partir de la nature libre du bien. */
 export function natureToType(nature: string | null): BienType {
