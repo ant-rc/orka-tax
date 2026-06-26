@@ -4,7 +4,8 @@ import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Check, X, Hash, Ruler, Building2, MapPin, Info } from 'lucide-react';
-import { fetchBienComparison, type BienComparison, type ComparisonRow } from '@/lib/supabase/queries';
+import { fetchBienComparison, type BienComparison } from '@/lib/supabase/queries';
+import { type ComparisonRow } from '@/lib/comparison/compare';
 import { BIEN_TYPE_ICON } from '@/lib/domain/property';
 
 const NUMERIC_FIELDS = new Set(['surface_m2', 'nb_pieces', 'nb_wc', 'nb_baignoires', 'nb_douches', 'nb_bidets', 'nb_eviers']);
