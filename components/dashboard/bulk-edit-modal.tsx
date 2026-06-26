@@ -7,6 +7,7 @@ import ConfirmBulkEditModal from '@/components/dashboard/confirm-bulk-edit-modal
 
 export interface BulkEditBien {
   id: string;
+  type: string;
   signature: string;
   label: string;
   values: ComparableValues;
@@ -86,6 +87,15 @@ export default function BulkEditModal({
     }
     return map;
   }, [biens]);
+
+  // Breakdown of the checked biens by type (e.g. 11 appartements, 3 caves).
+  const selectionByType = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const bien of biens) {
+      if (checkedIds.has(bien.id)) counts.set(bien.type, (counts.get(bien.type) ?? 0) + 1);
+    }
+    return [...counts.entries()].map(([type, count]) => ({ type, count }));
+  }, [biens, checkedIds]);
 
   if (!open) return null;
 
@@ -269,7 +279,7 @@ export default function BulkEditModal({
           <button
             onClick={() => setConfirmOpen(true)}
             disabled={checkedIds.size === 0 || applying || rawValue === ''}
-            className="bg-vert-700 text-white rounded-lg px-2.5 py-1.5 text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+            className="bg-vert-400 text-vert-900 rounded-lg px-2.5 py-1.5 text-sm font-medium hover:bg-vert-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Enregistrer
           </button>
@@ -279,7 +289,7 @@ export default function BulkEditModal({
 
     <ConfirmBulkEditModal
       open={confirmOpen}
-      count={checkedIds.size}
+      breakdown={selectionByType}
       applying={applying}
       onClose={() => setConfirmOpen(false)}
       onConfirm={handleApply}

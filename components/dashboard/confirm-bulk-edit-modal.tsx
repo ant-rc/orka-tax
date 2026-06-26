@@ -3,17 +3,28 @@
 import { useEffect } from 'react';
 import { Info, Check } from 'lucide-react';
 
+interface TypeBreakdown {
+  type: string;
+  count: number;
+}
+
 interface ConfirmBulkEditModalProps {
   open: boolean;
-  count: number;
+  breakdown: TypeBreakdown[];
   applying?: boolean;
   onConfirm: () => void;
   onClose: () => void;
 }
 
+/** "11 appartements", "1 cave" — lowercased type, naive French plural (+s). */
+function formatPart({ type, count }: TypeBreakdown): string {
+  const noun = count > 1 ? `${type.toLowerCase()}s` : type.toLowerCase();
+  return `${count} ${noun}`;
+}
+
 export default function ConfirmBulkEditModal({
   open,
-  count,
+  breakdown,
   applying = false,
   onConfirm,
   onClose,
@@ -29,7 +40,9 @@ export default function ConfirmBulkEditModal({
 
   if (!open) return null;
 
-  const plural = count > 1 ? 's' : '';
+  const total = breakdown.reduce((s, b) => s + b.count, 0);
+  const plural = total > 1 ? 's' : '';
+  const summary = breakdown.map(formatPart).join(', ');
 
   return (
     <div
@@ -49,7 +62,7 @@ export default function ConfirmBulkEditModal({
             <p className="text-base font-medium">Modification des biens</p>
             <p className="text-sm">
               Appliquer mon choix pour{' '}
-              <span className="font-bold">les {count} bien{plural}</span>{' '}
+              <span className="font-bold">les {summary}</span>{' '}
               sélectionné{plural}.
             </p>
           </div>

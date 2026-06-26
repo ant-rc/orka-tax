@@ -293,15 +293,15 @@ function pickComparable(row: Record<string, unknown>): ComparableValues {
   return out as unknown as ComparableValues;
 }
 
-export async function recomputeBiens(bienIds: string[]): Promise<void> {
-  if (bienIds.length === 0) return;
+export async function recomputeBiens(bienIds: string[]): Promise<{ anomalies: number }> {
+  if (bienIds.length === 0) return { anomalies: 0 };
   const supabase = createClient();
   const { data, error } = await supabase
     .from('biens')
     .select('id, fisc_snapshot, ponderation_nature, categorie, coeff_entretien, coeff_situation_particuliere, coeff_situation_generale, depcom, etage, surface_m2, nb_pieces, nb_wc, nb_baignoires, nb_douches, nb_bidets, nb_eviers, ascenseur, eau_courante, gaz, electricite')
     .in('id', bienIds);
   if (error) throw error;
-  await Promise.all((data ?? []).map(async (row) => {
+  const results = await Promise.all((data ?? []).map(async (row) => {
     const evalResult = evaluateBien({
       fisc: (row.fisc_snapshot as ComparableValues) ?? pickComparable(row),
       working: pickComparable(row),
@@ -313,22 +313,28 @@ export async function recomputeBiens(bienIds: string[]): Promise<void> {
       depcom: (row.depcom as string | null) ?? null,
       etage: (row.etage as string | null) ?? null,
     });
+    const isAnomaly = evalResult.anomalies.length > 0;
     const { error: upErr } = await supabase.from('biens').update({
       statut: evalResult.statut,
-      has_anomaly: evalResult.anomalies.length > 0,
+      has_anomaly: isAnomaly,
       anomalies: evalResult.anomalies as unknown as Json,
       degrevement_estime: evalResult.degrevement,
     }).eq('id', row.id);
     if (upErr) throw upErr;
+    return isAnomaly;
   }));
+  return { anomalies: results.filter(Boolean).length };
 }
 
-export async function bulkUpdateBiens(bienIds: string[], patch: Partial<ComparableValues>): Promise<void> {
-  if (bienIds.length === 0) return;
+export async function bulkUpdateBiens(
+  bienIds: string[],
+  patch: Partial<ComparableValues>,
+): Promise<{ anomalies: number }> {
+  if (bienIds.length === 0) return { anomalies: 0 };
   const supabase = createClient();
   const { error } = await supabase.from('biens').update(patch).in('id', bienIds);
   if (error) throw error;
-  await recomputeBiens(bienIds);
+  return recomputeBiens(bienIds);
 }
 
 // ---------------------------------------------------------------------------
