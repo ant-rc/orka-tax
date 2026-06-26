@@ -52,16 +52,16 @@ export default function BulkEditModal({
   const [applying, setApplying] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // Reset state when modal opens
+  // Reset state when modal opens; pre-check every pre-selected bien.
   useEffect(() => {
     if (open) {
-      setCheckedIds(new Set());
+      setCheckedIds(new Set(biens.map((b) => b.id)));
       setField(COMPARABLE_FIELDS[0]);
       setRawValue('');
       setApplying(false);
       setConfirmOpen(false);
     }
-  }, [open]);
+  }, [open, biens]);
 
   // Escape key to close
   useEffect(() => {
