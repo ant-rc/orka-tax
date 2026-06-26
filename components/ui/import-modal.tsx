@@ -64,7 +64,7 @@ export default function ImportModal({
           <div className="flex items-start gap-3">
             <img src="/assets/icon-import-header.svg" alt="" className="size-10 shrink-0" />
             <div>
-              <h2 className="text-base font-semibold text-ui-text-highlighted">Importation d'un fichier</h2>
+              <h2 className="text-base font-semibold text-ui-text-highlighted">Importation d&apos;un fichier</h2>
               <p className="text-sm text-ui-text-muted mt-0.5">{description}</p>
             </div>
           </div>
@@ -84,7 +84,7 @@ export default function ImportModal({
             >
               <img src="/assets/icon-file-xlsx.svg" alt="" className="size-10 shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-ui-text-highlighted">Template "biens"</p>
+                <p className="text-sm font-medium text-ui-text-highlighted">Template &laquo;&nbsp;biens&nbsp;&raquo;</p>
                 <p className="text-xs text-ui-text-muted">14kb • XLSX</p>
               </div>
               <img src="/assets/icon-download-btn.svg" alt="" className="size-7 shrink-0" />

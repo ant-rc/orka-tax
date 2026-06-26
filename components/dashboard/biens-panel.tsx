@@ -347,12 +347,15 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
 
       if (diffs.length > 0) {
         const ids = diffs.map((d) => d.bienId);
+        // Recompute en premier (calcule degrevement/anomalies)…
+        await recomputeBiens(ids);
+        // …puis on force le statut « anomalie » car ces biens diffèrent du CSV
+        // (recomputeBiens le remettrait à « resolu » sinon).
         const { error: updateErr } = await supabase
           .from('biens')
           .update({ statut: 'anomalie' })
           .in('id', ids);
         if (updateErr) throw new Error(updateErr.message);
-        await recomputeBiens(ids);
       }
 
       await loadBiens();

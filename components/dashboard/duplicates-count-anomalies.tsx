@@ -1,11 +1,6 @@
 'use client';
 
-interface DuplicatesCountAnomaliesProps {
-}
-
-export default function DuplicatesCountAnomalies({
-
-}: DuplicatesCountAnomaliesProps) {
+export default function DuplicatesCountAnomalies() {
   return (
     <div className="px-5 py-3 flex items-center gap-2 flex-wrap text-sm border-b border-ui-border duplicates-count-bar mb-4">
       <img src="/assets/warning-badge.svg" className=""/>

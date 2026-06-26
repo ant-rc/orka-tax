@@ -55,19 +55,21 @@ export default function AnomaliesPanel() {
   const [biens, setBiens] = useState<AnomalyBien[]>([]);
   const [totalBiens, setTotalBiens] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [filterAnomalieOnly, setFilterAnomalieOnly] = useState(false);
+  // Lecture du flag sessionStorage en init lazy (évite un setState dans un effet).
+  const [filterAnomalieOnly, setFilterAnomalieOnly] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    if (sessionStorage.getItem('filter_anomalie') === '1') {
+      sessionStorage.removeItem('filter_anomalie');
+      return true;
+    }
+    return false;
+  });
   const [importOpen, setImportOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AnomalyBien | null>(null);
   const [generatingLot, setGeneratingLot] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (sessionStorage.getItem('filter_anomalie') === '1') {
-      setFilterAnomalieOnly(true);
-      sessionStorage.removeItem('filter_anomalie');
-    }
-  }, []);
-
   const load = useCallback(async () => {
+    setFilters([]);
     if (!activeProfileId) { setBiens([]); setTotalBiens(0); setLoading(false); return; }
     setLoading(true);
     try {
@@ -85,7 +87,6 @@ export default function AnomaliesPanel() {
   }, [activeProfileId, toast]);
 
   useEffect(() => {
-    setFilters([]);
     void load();
   }, [load]);
 
@@ -320,7 +321,7 @@ export default function AnomaliesPanel() {
           </>
         }
       >
-        <p className="text-sm text-ui-text-muted">L'import se fait depuis la page de gestion des biens d'un lot.</p>
+        <p className="text-sm text-ui-text-muted">L&apos;import se fait depuis la page de gestion des biens d&apos;un lot.</p>
       </Modal>
     </div>
   );
