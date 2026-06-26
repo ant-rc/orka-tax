@@ -12,7 +12,15 @@ import { natureToType } from '@/lib/biens/display';
 import { simulateStatut } from '@/lib/tunnel/advance';
 import { evaluateBien } from '@/lib/comparison/evaluate';
 import { type FieldAnomaly } from '@/lib/comparison/compare';
-import type { ComparableValues } from '@/lib/domain/comparable';
+import {
+  COMPARABLE_FIELDS,
+  COMPARABLE_FIELD_LABELS,
+  type ComparableField,
+  type ComparableValues,
+} from '@/lib/domain/comparable';
+import { computeVlc, type VlcInput } from '@/lib/degrevement/compute';
+import { DEFAULT_BAREME } from '@/lib/degrevement/bareme';
+import { resolveTaux } from '@/lib/tax/taux';
 
 type LotRow = Database['public']['Tables']['lots']['Row'];
 type BienRow = Database['public']['Tables']['biens']['Row'];
@@ -205,6 +213,84 @@ export async function createBien(
   return mapBien(data);
 }
 
+export interface ComparisonRow {
+  field: ComparableField;
+  label: string;
+  working: number | boolean | null;
+  fisc: number | boolean | null;
+  match: boolean;
+}
+
+export interface BienComparison {
+  id: string;
+  type: BienType;
+  reference: string;
+  surface: string;
+  etage: string;
+  address: string;
+  rows: ComparisonRow[];
+  taxePayee: number;
+  taxeAttendue: number;
+  degrevement: number;
+}
+
+/** Full FISC-vs-working comparison for a single bien, plus the estimated tax
+ *  impact. Powers the "Comparaison de vos données" screen. */
+export async function fetchBienComparison(bienId: string): Promise<BienComparison | null> {
+  const supabase = createClient();
+  const { data: bien, error } = await supabase
+    .from('biens')
+    .select('id, nature, invariant_cadastral, surface_m2, etage, rue, depcom, categorie, ponderation_nature, coeff_entretien, coeff_situation_particuliere, coeff_situation_generale, nb_pieces, nb_wc, nb_baignoires, nb_douches, nb_bidets, nb_eviers, ascenseur, eau_courante, gaz, electricite')
+    .eq('id', bienId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!bien) return null;
+
+  const { data: fiscRow, error: fiscErr } = await supabase
+    .from('biens_fisc')
+    .select('surface_m2, nb_pieces, nb_wc, nb_baignoires, nb_douches, nb_bidets, nb_eviers, ascenseur, eau_courante, gaz, electricite')
+    .eq('bien_id', bienId)
+    .maybeSingle();
+  if (fiscErr) throw fiscErr;
+
+  const row = bien as Record<string, unknown>;
+  const working = pickComparable(row);
+  const fisc = fiscRow ? pickComparable(fiscRow as Record<string, unknown>) : working;
+
+  const rows: ComparisonRow[] = COMPARABLE_FIELDS.map((field) => {
+    const w = working[field] ?? null;
+    const f = fisc[field] ?? null;
+    return { field, label: COMPARABLE_FIELD_LABELS[field], working: w, fisc: f, match: w === f };
+  });
+
+  const base = {
+    ponderation_nature: Number(row.ponderation_nature ?? 1),
+    categorie: String(row.categorie ?? ''),
+    coeff_entretien: row.coeff_entretien as number | null,
+    coeff_situation_particuliere: row.coeff_situation_particuliere as number | null,
+    coeff_situation_generale: row.coeff_situation_generale as number | null,
+  };
+  const toVlc = (c: ComparableValues): VlcInput => ({ ...c, ...base });
+  const taux = resolveTaux((row.depcom as string | null) ?? null, (row.etage as string | null) ?? null);
+  const round = (n: number) => Math.round(n * 100) / 100;
+  const taxePayee = round(computeVlc(toVlc(fisc), DEFAULT_BAREME) * taux);
+  const taxeAttendue = round(computeVlc(toVlc(working), DEFAULT_BAREME) * taux);
+
+  const surfaceM2 = row.surface_m2 as number | null;
+  return {
+    id: String(row.id),
+    type: natureToType(row.nature as string | null),
+    reference: (row.invariant_cadastral as string | null) ?? '',
+    surface: surfaceM2 != null ? `${surfaceM2}m2` : '—',
+    etage: (row.etage as string | null) ?? '0',
+    address: (row.rue as string | null) ?? '',
+    rows,
+    taxePayee,
+    taxeAttendue,
+    degrevement: round(taxePayee - taxeAttendue),
+  };
+}
+
 export async function deleteBien(bienId: string): Promise<void> {
   const supabase = createClient();
   const { error } = await supabase.from('biens').delete().eq('id', bienId);
@@ -289,16 +375,25 @@ export async function fetchBienIdsByLots(lotIds: string[]): Promise<string[]> {
   return (data ?? []).map((r) => r.id);
 }
 
-export async function fetchAnomalyBiensByProfile(fiscalProfileId: string): Promise<Bien[]> {
+export interface AnomalyBien extends Bien {
+  lotName: string;
+}
+
+/** Biens still flagged as `anomalie` for a profile (reclaimed ones are excluded
+ *  so they leave the screen once their réclamation is generated), with lot name. */
+export async function fetchAnomalyBiensByProfile(fiscalProfileId: string): Promise<AnomalyBien[]> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from('biens')
-    .select(`${BIEN_SELECT}, lots!inner(fiscal_profile_id)`)
+    .select(`${BIEN_SELECT}, lots!inner(name, fiscal_profile_id)`)
     .eq('lots.fiscal_profile_id', fiscalProfileId)
-    .in('statut', ['anomalie', 'reclamation', 'remboursement'])
+    .eq('statut', 'anomalie')
     .order('created_at');
   if (error) throw error;
-  return (data ?? []).map((r) => mapBien(r));
+  return (data ?? []).map((r) => ({
+    ...mapBien(r),
+    lotName: (r.lots as unknown as { name: string }).name,
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -391,27 +486,6 @@ export async function createReclamation(lotId: string): Promise<{ total: number 
     .update({ statut: 'reclamation' }).eq('lot_id', lotId).eq('statut', 'anomalie');
   if (upErr) throw upErr;
   return { total };
-}
-
-/** Generate the réclamation for every lot of the profile that still has biens in
- *  anomalie. Returns the aggregated total and the number of lots concerned. */
-export async function createReclamationForProfile(
-  fiscalProfileId: string,
-): Promise<{ total: number; lots: number }> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('biens')
-    .select('lot_id, lots!inner(fiscal_profile_id)')
-    .eq('lots.fiscal_profile_id', fiscalProfileId)
-    .eq('statut', 'anomalie');
-  if (error) throw error;
-  const lotIds = [...new Set((data ?? []).map((b) => b.lot_id))];
-  let total = 0;
-  for (const lotId of lotIds) {
-    const { total: t } = await createReclamation(lotId);
-    total += t;
-  }
-  return { total: Math.round(total * 100) / 100, lots: lotIds.length };
 }
 
 export interface ReclamationRecap {

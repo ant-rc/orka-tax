@@ -195,6 +195,9 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
     return {
       id: b.id,
       type: b.type,
+      reference: b.reference,
+      surface: b.surface,
+      etage: b.etage,
       label: `${b.type} ${b.surface}`,
       values,
       signature: bienSignature(values),
