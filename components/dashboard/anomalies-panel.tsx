@@ -6,6 +6,7 @@ import { ArrowDownUp, ArrowUp, ArrowDown, ChevronDown, Trash2 } from 'lucide-rea
 import { BIEN_TYPE_ICON, type Bien } from '@/lib/domain/property';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
+import { comparableFieldLabel } from '@/lib/domain/comparable';
 import { fetchAnomalyBiensByProfile, fetchDeclarationCounts, deleteBien } from '@/lib/supabase/queries';
 import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
 import { useFiscalProfile } from '@/components/dashboard/fiscal-profile-context';
@@ -97,19 +98,20 @@ export default function AnomaliesPanel() {
   const safePage = Math.min(page, totalPages);
 
   const visible = sorted.slice((safePage - 1) * pageSize, safePage * pageSize);
-  const allVisibleSelected = visible.length > 0 && visible.every((b) => selected.has(b.id));
+  // "Select all" spans the whole filtered list (all pages), not just the current page.
+  const allFilteredSelected = filtered.length > 0 && filtered.every((b) => selected.has(b.id));
 
   const toggleAll = useCallback(() => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (allVisibleSelected) {
-        visible.forEach((b) => next.delete(b.id));
+      if (allFilteredSelected) {
+        filtered.forEach((b) => next.delete(b.id));
       } else {
-        visible.forEach((b) => next.add(b.id));
+        filtered.forEach((b) => next.add(b.id));
       }
       return next;
     });
-  }, [allVisibleSelected, visible]);
+  }, [allFilteredSelected, filtered]);
 
   const toggleOne = useCallback((id: string) => {
     setSelected((prev) => {
@@ -203,7 +205,7 @@ export default function AnomaliesPanel() {
                   type="checkbox"
                   className="rounded"
                   aria-label="Tout sélectionner"
-                  checked={allVisibleSelected}
+                  checked={allFilteredSelected}
                   onChange={toggleAll}
                 />
               </th>
@@ -305,7 +307,7 @@ export default function AnomaliesPanel() {
                   <td className="px-4 py-3">
                     {bien.anomalies.length > 0 ? (
                       <span className="text-xs text-ui-text-muted">
-                        {bien.anomalies.map((a) => a.field).join(', ')}
+                        {bien.anomalies.map((a) => comparableFieldLabel(a.field)).join(', ')}
                       </span>
                     ) : <span className="text-xs text-ui-text-dimmed">—</span>}
                   </td>

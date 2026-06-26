@@ -201,19 +201,20 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
   const safePage = Math.min(page, totalPages);
 
   const visible = sorted.slice((safePage - 1) * pageSize, safePage * pageSize);
-  const allVisibleSelected = visible.length > 0 && visible.every((b) => selected.has(b.id));
+  // "Select all" spans the whole filtered list (all pages), respecting active filters.
+  const allFilteredSelected = filtered.length > 0 && filtered.every((b) => selected.has(b.id));
 
   const toggleAll = useCallback(() => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (allVisibleSelected) {
-        visible.forEach((b) => next.delete(b.id));
+      if (allFilteredSelected) {
+        filtered.forEach((b) => next.delete(b.id));
       } else {
-        visible.forEach((b) => next.add(b.id));
+        filtered.forEach((b) => next.add(b.id));
       }
       return next;
     });
-  }, [allVisibleSelected, visible]);
+  }, [allFilteredSelected, filtered]);
 
   const toggleOne = useCallback((id: string) => {
     setSelected((prev) => {
@@ -471,7 +472,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
                   type="checkbox"
                   className="rounded"
                   aria-label="Tout sélectionner"
-                  checked={allVisibleSelected}
+                  checked={allFilteredSelected}
                   onChange={toggleAll}
                 />
               </th>
