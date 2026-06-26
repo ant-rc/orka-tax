@@ -11,8 +11,8 @@ const LAST_MODIFIED_PLACEHOLDER = '09/12/2026';
 
 export default function BottomBar() {
   const toast = useToast();
-  const { selectedCount, runGenerate } = useSelection();
-  const canGenerate = selectedCount > 0;
+  const { generateReady, runGenerate } = useSelection();
+  const canGenerate = generateReady;
 
   const [loaderOpen, setLoaderOpen] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -68,7 +68,7 @@ export default function BottomBar() {
           <button
             onClick={handleGenerate}
             disabled={!canGenerate}
-            title={canGenerate ? undefined : 'Sélectionnez au moins un lot ou un bien'}
+            title={canGenerate ? undefined : 'Aucun bien à traiter'}
             className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors disabled:bg-ui-border disabled:text-ui-text-dimmed disabled:cursor-not-allowed disabled:hover:bg-ui-border"
             aria-label="Générer mon rapport"
           >

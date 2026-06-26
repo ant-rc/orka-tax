@@ -58,7 +58,7 @@ const LOT_ACCESSORS: Record<string, (l: Lot) => string> = {
 
 export default function LotsPanel() {
   const toast = useToast();
-  const { setSelectedCount, registerGenerate } = useSelection();
+  const { setSelectedCount, setGenerateReady, registerGenerate } = useSelection();
   const { activeProfileId } = useFiscalProfile();
 
   const [search, setSearch] = useState('');
@@ -105,18 +105,24 @@ export default function LotsPanel() {
     setSelectedCount(selected.size);
   }, [selected, setSelectedCount]);
 
-// Reset the shared count when leaving this screen.
-  useEffect(() => () => setSelectedCount(0), [setSelectedCount]);
+  // "Générer mon rapport" runs the comparison over the whole portfolio, so it is
+  // enabled as soon as the profile has lots.
+  useEffect(() => {
+    setGenerateReady(lots.length > 0);
+  }, [lots, setGenerateReady]);
 
-  // Register generate action with the selection context.
+  // Reset the shared state when leaving this screen.
+  useEffect(() => () => { setSelectedCount(0); setGenerateReady(false); }, [setSelectedCount, setGenerateReady]);
+
+  // Register generate action with the selection context. The report covers the
+  // whole profile portfolio, not just the current selection.
   const handleGenerate = useCallback(async () => {
-    const lotIds = [...selected];
-    if (!lotIds.length) return;
-    const ids = await fetchBienIdsByLots(lotIds);
+    const ids = await fetchBienIdsByLots(lots.map((l) => l.id));
+    if (!ids.length) return;
     await simulateBiens(ids);
     setSelected(new Set());
     setSelectedCount(0);
-  }, [selected, setSelectedCount]);
+  }, [lots, setSelectedCount]);
 
   useEffect(() => {
     registerGenerate(handleGenerate);

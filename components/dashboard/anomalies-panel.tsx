@@ -7,7 +7,7 @@ import { BIEN_TYPE_ICON, type Bien } from '@/lib/domain/property';
 import { type ActiveFilter, type FieldDef } from '@/lib/table/filters';
 import { compareAlphaNum } from '@/lib/table/compare';
 import { comparableFieldLabel } from '@/lib/domain/comparable';
-import { fetchAnomalyBiensByProfile, fetchDeclarationCounts, deleteBien } from '@/lib/supabase/queries';
+import { fetchAnomalyBiensByProfile, fetchDeclarationCounts, createReclamationForProfile, deleteBien } from '@/lib/supabase/queries';
 import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
 import { useFiscalProfile } from '@/components/dashboard/fiscal-profile-context';
 import PanelToolbarAnomalies from '@/components/dashboard/panel-toolbar-anomalies';
@@ -52,6 +52,7 @@ export default function AnomaliesPanel() {
   const [importOpen, setImportOpen] = useState(false);
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Bien | null>(null);
+  const [generatingReclamation, setGeneratingReclamation] = useState(false);
 
   // Load biens for the active fiscal profile; reset view on switch.
   useEffect(() => {
@@ -174,6 +175,21 @@ export default function AnomaliesPanel() {
     toast('Import simulé — pipeline à brancher');
   }, [toast]);
 
+  const hasAnomalieBiens = useMemo(() => biens.some((b) => b.statut === 'anomalie'), [biens]);
+
+  const handleGenererReclamation = useCallback(async () => {
+    if (!activeProfileId) return;
+    setGeneratingReclamation(true);
+    try {
+      const { total, lots } = await createReclamationForProfile(activeProfileId);
+      toast(`Réclamation générée sur ${lots} lot${lots > 1 ? 's' : ''} (${total} €)`, 'success');
+      router.push('/results-reclamations');
+    } catch {
+      toast('Échec de la génération de la réclamation', 'error');
+      setGeneratingReclamation(false);
+    }
+  }, [activeProfileId, router, toast]);
+
   const montant = biens.reduce((s, b) => s + Math.max(0, b.degrevement), 0);
   const rate = totalBiens > 0 ? (biens.length / totalBiens) * 100 : 0;
 
@@ -186,6 +202,9 @@ export default function AnomaliesPanel() {
         onImport={() => setImportOpen(true)}
         count={filtered.length}
         total={biens.length}
+        onReclamation={handleGenererReclamation}
+        reclamationLabel={generatingReclamation ? 'Génération…' : 'Générer ma réclamation'}
+        reclamationDisabled={!hasAnomalieBiens || generatingReclamation}
       />
       <FilterChips
         fields={BIEN_FIELDS}
