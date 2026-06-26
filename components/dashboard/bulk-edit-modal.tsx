@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
-import { COMPARABLE_FIELDS, type ComparableField, type ComparableValues } from '@/lib/domain/comparable';
+import { COMPARABLE_FIELDS, COMPARABLE_FIELD_LABELS as FIELD_LABELS, type ComparableField, type ComparableValues } from '@/lib/domain/comparable';
 import ConfirmBulkEditModal from '@/components/dashboard/confirm-bulk-edit-modal';
 
 export interface BulkEditBien {
@@ -26,20 +26,6 @@ const BOOLEAN_FIELDS: ReadonlySet<ComparableField> = new Set<ComparableField>([
   'gaz',
   'electricite',
 ]);
-
-const FIELD_LABELS: Record<ComparableField, string> = {
-  surface_m2: 'Surface (m²)',
-  nb_pieces: 'Nb pièces',
-  nb_wc: 'Nb WC',
-  nb_baignoires: 'Nb baignoires',
-  nb_douches: 'Nb douches',
-  nb_bidets: 'Nb bidets',
-  nb_eviers: 'Nb éviers',
-  ascenseur: 'Ascenseur',
-  eau_courante: 'Eau courante',
-  gaz: 'Gaz',
-  electricite: 'Électricité',
-};
 
 export default function BulkEditModal({
   open,

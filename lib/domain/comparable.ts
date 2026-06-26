@@ -6,6 +6,26 @@ export const COMPARABLE_FIELDS = [
 
 export type ComparableField = (typeof COMPARABLE_FIELDS)[number];
 
+/** Human-readable labels for the comparable fields (UI display). */
+export const COMPARABLE_FIELD_LABELS: Record<ComparableField, string> = {
+  surface_m2: 'Surface (m²)',
+  nb_pieces: 'Nb pièces',
+  nb_wc: 'Nb WC',
+  nb_baignoires: 'Nb baignoires',
+  nb_douches: 'Nb douches',
+  nb_bidets: 'Nb bidets',
+  nb_eviers: 'Nb éviers',
+  ascenseur: 'Ascenseur',
+  eau_courante: 'Eau courante',
+  gaz: 'Gaz',
+  electricite: 'Électricité',
+};
+
+/** Label for a field key, falling back to the raw key if unknown. */
+export function comparableFieldLabel(field: string): string {
+  return COMPARABLE_FIELD_LABELS[field as ComparableField] ?? field;
+}
+
 export type ComparableValues = {
   surface_m2: number | null;
   nb_pieces: number | null;

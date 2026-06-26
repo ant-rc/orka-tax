@@ -191,19 +191,20 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
   const safePage = Math.min(page, totalPages);
 
   const visible = sorted.slice((safePage - 1) * pageSize, safePage * pageSize);
-  const allVisibleSelected = visible.length > 0 && visible.every((b) => selected.has(b.id));
+  // "Select all" spans the whole filtered list (all pages), respecting active filters.
+  const allFilteredSelected = filtered.length > 0 && filtered.every((b) => selected.has(b.id));
 
   const toggleAll = useCallback(() => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (allVisibleSelected) {
-        visible.forEach((b) => next.delete(b.id));
+      if (allFilteredSelected) {
+        filtered.forEach((b) => next.delete(b.id));
       } else {
-        visible.forEach((b) => next.add(b.id));
+        filtered.forEach((b) => next.add(b.id));
       }
       return next;
     });
-  }, [allVisibleSelected, visible]);
+  }, [allFilteredSelected, filtered]);
 
   const toggleOne = useCallback((id: string) => {
     setSelected((prev) => {
@@ -333,7 +334,6 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
       const fullBiens = (existingRows ?? []) as unknown as (Record<string, unknown> & { id: string; invariant_cadastral: string | null })[];
       const diffs = diffBiensAgainstImport(fullBiens, table);
 
-<<<<<<< HEAD
       if (diffs.length > 0) {
         const ids = diffs.map((d) => d.bienId);
         const { error: updateErr } = await supabase
@@ -341,59 +341,6 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
           .update({ statut: 'anomalie' })
           .in('id', ids);
         if (updateErr) throw new Error(updateErr.message);
-=======
-      let updated = 0;
-      let unchanged = 0;
-      let inserted = 0;
-      const affectedIds: string[] = [];
-      const toInsert: BienInsert[] = [];
-      for (const rec of records) {
-        const key = normalizeInvariant(rec.invariant_cadastral);
-        const existing = key ? byInvariant.get(key) : undefined;
-
-        if (existing) {
-          // Diff : on ne garde que les champs présents (non vides) dans le fichier ET
-          // dont la valeur diffère de l'existant.
-          const payload: BienUpdate = Object.fromEntries(
-            Object.entries(rec).filter(
-              ([k, v]) => v !== null && v !== '' && !bienValueEqual(existing[k], v),
-            ),
-          );
-          if (Object.keys(payload).length === 0) {
-            unchanged++;
-            continue;
-          }
-          // .select() permet de compter les lignes réellement modifiées : si RLS
-          // bloque l'UPDATE, Supabase ne renvoie ni erreur ni ligne.
-          const { data, error } = await supabase
-            .from('biens')
-            .update(payload)
-            .eq('id', existing.id as string)
-            .select('id');
-          if (error) throw new Error(error.message);
-          if (data && data.length > 0) {
-            updated++;
-            affectedIds.push(existing.id as string);
-          }
-        } else {
-          // Nouveau bien : pas de correspondance dans la liste → on l'ajoute au lot.
-          toInsert.push({ ...rec, org_id: getActiveOrgId(), lot_id: lotId } as BienInsert);
-        }
-      }
-
-      if (toInsert.length > 0) {
-        const { data, error } = await supabase.from('biens').insert(toInsert).select('id');
-        if (error) throw new Error(error.message);
-        inserted = data?.length ?? 0;
-        for (const row of data ?? []) affectedIds.push(row.id);
-      }
-
-      // Des biens devaient changer mais aucune écriture n'a abouti → RLS probable.
-      if (updated === 0 && inserted === 0 && unchanged === 0 && records.length > 0) {
-        throw new Error(
-          "Écriture refusée par la base (RLS). Applique la migration 0004 : « demo public write » sur la table biens.",
-        );
->>>>>>> d87ba27 (feat(dashboard): wire grouped bulk-edit into the biens panel)
       }
 
       if (affectedIds.length > 0) {
@@ -463,7 +410,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
                   type="checkbox"
                   className="rounded"
                   aria-label="Tout sélectionner"
-                  checked={allVisibleSelected}
+                  checked={allFilteredSelected}
                   onChange={toggleAll}
                 />
               </th>
@@ -719,45 +666,11 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
       <ImportModal
         open={importOpen}
         onClose={closeImport}
-<<<<<<< HEAD
         onConfirm={handleImportConfirm}
         importing={importing}
         file={importFile}
         onFileChange={setImportFile}
-=======
-        title="Mettre à jour les biens (CSV ou XLSX)"
-        footer={
-          <>
-            <button
-              onClick={closeImport}
-              className="border border-ui-border rounded-md px-4 py-2 text-sm text-ui-text hover:bg-ui-bg-elevated transition-colors"
-            >
-              Annuler
-            </button>
-            <button
-              onClick={handleImportConfirm}
-              disabled={!importFile || importing}
-              className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {importing ? 'Import…' : 'Importer'}
-            </button>
-          </>
-        }
-      >
-        <div className="flex flex-col gap-3">
-          <p className="text-sm text-ui-text-muted">
-            Sélectionnez un fichier CSV ou XLSX. Les biens y figurant (rapprochés par leur
-            invariant cadastral) seront mis à jour&nbsp;; les biens absents du fichier restent
-            inchangés.
-          </p>
-          <input
-            type="file"
-            accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
-            className="text-sm text-ui-text file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:border-ui-border file:text-sm file:text-ui-text file:bg-white hover:file:bg-ui-bg-elevated"
-          />
-        </div>
-      </Modal>
+      />
 
       {/* Bulk edit modal */}
       <BulkEditModal
@@ -773,7 +686,6 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
             toast('Aucune anomalie détectée', 'success');
           }
         }}
->>>>>>> d87ba27 (feat(dashboard): wire grouped bulk-edit into the biens panel)
       />
     </div>
   );
