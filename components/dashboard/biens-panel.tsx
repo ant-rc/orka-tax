@@ -16,7 +16,7 @@ import Modal from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import { useSelection } from '@/components/dashboard/selection-context';
 import ConfirmDeleteModal from '@/components/dashboard/confirm-delete-modal';
-import BienPreviewModal from '@/components/dashboard/bien-preview-modal';
+import BienPreviewModal, { type PreviewBien } from '@/components/dashboard/bien-preview-modal';
 import { parseImportFile, rowsToBiens, normalizeInvariant, bienValueEqual } from '@/lib/import/client';
 import { CANONICAL_FIELDS } from '@/lib/canonical/fields';
 import { createClient, getActiveOrgId } from '@/lib/supabase/client';
@@ -66,7 +66,7 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Bien | null>(null);
   const [editOpen, setEditOpen] = useState(false);
-  const [previewTarget, setPreviewTarget] = useState<Bien | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [comparableMap, setComparableMap] = useState<Map<string, ComparableValues>>(new Map());
 
   // Add form state
@@ -279,8 +279,14 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
 
   // Read-only preview (no edit) — editing is done via the "Édition" button.
   const handleVoir = useCallback((bien: Bien) => {
-    setPreviewTarget(bien);
-  }, []);
+    const i = sorted.findIndex((b) => b.id === bien.id);
+    if (i >= 0) setPreviewIndex(i);
+  }, [sorted]);
+
+  const previewItems = useMemo<PreviewBien[]>(
+    () => sorted.map((b) => ({ bien: b, values: comparableMap.get(b.id) ?? null })),
+    [sorted, comparableMap],
+  );
 
   const resetAddForm = useCallback(() => {
     setNewType('Appartement');
@@ -767,12 +773,13 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
         }}
       />
 
-      {/* Read-only bien preview */}
+      {/* Read-only bien preview with prev/next navigation */}
       <BienPreviewModal
-        open={!!previewTarget}
-        bien={previewTarget}
-        values={previewTarget ? comparableMap.get(previewTarget.id) ?? null : null}
-        onClose={() => setPreviewTarget(null)}
+        open={previewIndex !== null}
+        items={previewItems}
+        index={previewIndex ?? 0}
+        onIndexChange={setPreviewIndex}
+        onClose={() => setPreviewIndex(null)}
       />
     </div>
   );
