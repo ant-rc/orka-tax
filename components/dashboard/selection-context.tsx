@@ -5,12 +5,10 @@ import { createContext, useContext, useState, useCallback, useRef } from 'react'
 interface SelectionContextValue {
   selectedCount: number;
   setSelectedCount: (count: number) => void;
-  /** Whether "Générer mon rapport" should be enabled (set by the active screen). */
   generateReady: boolean;
   setGenerateReady: (ready: boolean) => void;
   registerGenerate: (fn: (() => Promise<void>) | null) => void;
   runGenerate: () => Promise<void>;
-  /** Number of biens flagged as anomalie (unlocks redirect to anomalies page). */
   anomalieCount: number;
   setAnomalieCount: (count: number) => void;
 }

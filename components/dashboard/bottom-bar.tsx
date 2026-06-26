@@ -59,7 +59,7 @@ export default function BottomBar() {
           <button
             onClick={handleGenerate}
             disabled={!canGenerate}
-            title={canGenerate ? undefined : 'Tous les biens du lot doivent être traités'}
+            title={canGenerate ? undefined : 'Aucun bien à traiter'}
             className="bg-vert-400 text-vert-900 rounded-md px-4 py-2 text-sm font-medium hover:bg-vert-300 transition-colors disabled:bg-ui-border disabled:text-ui-text-dimmed disabled:cursor-not-allowed disabled:hover:bg-ui-border"
             aria-label="Générer mon rapport"
           >

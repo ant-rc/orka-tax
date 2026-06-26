@@ -21,6 +21,7 @@ import { parseImportFile } from '@/lib/import/client';
 import { diffBiensAgainstImport } from '@/lib/import/diff';
 import { createClient, getActiveOrgId } from '@/lib/supabase/client';
 import { deleteBien, simulateBiens } from '@/lib/supabase/queries';
+// (deleteBien/simulateBiens pulled in here; bulkUpdateBiens/recomputeBiens/createReclamation above)
 import { dbBienToBien, BIEN_DISPLAY_COLUMNS } from '@/lib/biens/display';
 import ImportModal from '@/components/ui/import-modal';
 import type { Database } from '@/lib/supabase/types';
@@ -67,7 +68,6 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
   const [deleteTarget, setDeleteTarget] = useState<Bien | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [comparableMap, setComparableMap] = useState<Map<string, ComparableValues>>(new Map());
-  const [generatingReclamation, setGeneratingReclamation] = useState(false);
 
   // Add form state
   const [newType, setNewType] = useState<BienType>('Appartement');
@@ -85,8 +85,13 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
     setAnomalieCount(biens.filter((b) => b.statut === 'anomalie').length);
   }, [biens, setAnomalieCount]);
 
+  // "Générer mon rapport" actif quand le lot a des biens.
+  useEffect(() => {
+    setGenerateReady(biens.length > 0);
+  }, [biens, setGenerateReady]);
+
   // Reset au départ de cet écran.
-  useEffect(() => () => { setSelectedCount(0); setAnomalieCount(0); }, [setSelectedCount, setAnomalieCount]);
+  useEffect(() => () => { setSelectedCount(0); setGenerateReady(false); setAnomalieCount(0); }, [setSelectedCount, setGenerateReady, setAnomalieCount]);
 
   // Charge les biens du lot depuis Supabase.
   const loadBiens = useCallback(async () => {
@@ -131,6 +136,21 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
       setComparableMap(map);
     }
   }, [lotId, toast]);
+
+  // Register generate action ("Générer mon rapport") with the selection context.
+  const handleGenerate = useCallback(async () => {
+    const ids = biens.map((b) => b.id);
+    if (!ids.length) return;
+    await simulateBiens(ids);
+    await loadBiens();
+    setSelected(new Set());
+    setSelectedCount(0);
+  }, [biens, loadBiens, setSelectedCount]);
+
+  useEffect(() => {
+    registerGenerate(handleGenerate);
+    return () => registerGenerate(null);
+  }, [handleGenerate, registerGenerate]);
 
   // Load the lot's biens from Supabase.
   useEffect(() => {
@@ -243,21 +263,6 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
     });
   }, []);
 
-  const hasAnomalieBiens = useMemo(() => biens.some((b) => b.statut === 'anomalie'), [biens]);
-
-  const handleGenererReclamation = useCallback(async () => {
-    setGeneratingReclamation(true);
-    try {
-      const { total } = await createReclamation(lotId);
-      toast(`Réclamation générée (${total} €)`, 'success');
-      await loadBiens();
-    } catch (err) {
-      toast(err instanceof Error ? err.message : 'Échec de la génération de la réclamation', 'error');
-    } finally {
-      setGeneratingReclamation(false);
-    }
-  }, [lotId, loadBiens, toast]);
-
   const handleDeleteConfirm = useCallback(async () => {
     if (!deleteTarget) return;
     const id = deleteTarget.id;
@@ -343,8 +348,8 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
         if (updateErr) throw new Error(updateErr.message);
       }
 
-      if (affectedIds.length > 0) {
-        await recomputeBiens(affectedIds);
+      if (diffs.length > 0) {
+        await recomputeBiens(diffs.map((d) => d.bienId));
       }
 
       await loadBiens();
@@ -383,13 +388,6 @@ export default function BiensPanel({ lotId }: { lotId: string }) {
           className="border border-ui-border rounded-md px-3 py-2 text-sm flex items-center gap-1.5 text-ui-text hover:bg-ui-bg-elevated transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Édition
-        </button>
-        <button
-          onClick={handleGenererReclamation}
-          disabled={!hasAnomalieBiens || generatingReclamation}
-          className="bg-cyprus-900 text-white rounded-md px-3 py-2 text-sm font-medium hover:bg-cyprus-800 transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {generatingReclamation ? 'Génération…' : 'Générer ma réclamation'}
         </button>
       </div>
       <FilterChips

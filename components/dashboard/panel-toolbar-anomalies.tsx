@@ -10,6 +10,9 @@ interface PanelToolbarProps {
   onImport: () => void;
   count: number;
   total: number;
+  onReclamation?: () => void;
+  reclamationLabel?: string;
+  reclamationDisabled?: boolean;
 }
 
 export default function PanelToolbarAnomalies({
@@ -20,6 +23,9 @@ export default function PanelToolbarAnomalies({
   onImport,
   count,
   total,
+  onReclamation,
+  reclamationLabel = 'Générer ma réclamation',
+  reclamationDisabled = false,
 }: PanelToolbarProps) {
   return (
     <div className="pt-10 pb-4 flex items-center justify-between gap-4 flex-wrap">
@@ -51,6 +57,15 @@ export default function PanelToolbarAnomalies({
           >
             <Plus size={14} />
             {primaryLabel}
+          </button>
+        )}
+        {onReclamation && (
+          <button
+            onClick={onReclamation}
+            disabled={reclamationDisabled}
+            className="bg-cyprus-900 text-white rounded-md px-3 py-2 text-sm font-medium hover:bg-cyprus-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {reclamationLabel}
           </button>
         )}
       </div>

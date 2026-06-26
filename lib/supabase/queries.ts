@@ -8,6 +8,7 @@ import {
   type FiscalProfile,
   BIEN_TYPES,
 } from '@/lib/domain/property';
+import { natureToType } from '@/lib/biens/display';
 import { simulateStatut } from '@/lib/tunnel/advance';
 import { evaluateBien } from '@/lib/comparison/evaluate';
 import { type FieldAnomaly } from '@/lib/comparison/compare';
@@ -390,4 +391,68 @@ export async function createReclamation(lotId: string): Promise<{ total: number 
     .update({ statut: 'reclamation' }).eq('lot_id', lotId).eq('statut', 'anomalie');
   if (upErr) throw upErr;
   return { total };
+}
+
+/** Generate the réclamation for every lot of the profile that still has biens in
+ *  anomalie. Returns the aggregated total and the number of lots concerned. */
+export async function createReclamationForProfile(
+  fiscalProfileId: string,
+): Promise<{ total: number; lots: number }> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('biens')
+    .select('lot_id, lots!inner(fiscal_profile_id)')
+    .eq('lots.fiscal_profile_id', fiscalProfileId)
+    .eq('statut', 'anomalie');
+  if (error) throw error;
+  const lotIds = [...new Set((data ?? []).map((b) => b.lot_id))];
+  let total = 0;
+  for (const lotId of lotIds) {
+    const { total: t } = await createReclamation(lotId);
+    total += t;
+  }
+  return { total: Math.round(total * 100) / 100, lots: lotIds.length };
+}
+
+export interface ReclamationRecap {
+  total: number;
+  byLot: { lotId: string; lotName: string; total: number }[];
+  byType: { type: BienType; count: number; total: number }[];
+}
+
+/** Recap of the réclamations carried for a profile: total dégrèvement grouped by
+ *  lot, by bien type, and overall. Reads the biens already advanced to reclamation. */
+export async function fetchReclamationRecap(fiscalProfileId: string): Promise<ReclamationRecap> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('biens')
+    .select('lot_id, nature, degrevement_estime, lots!inner(name, fiscal_profile_id)')
+    .eq('lots.fiscal_profile_id', fiscalProfileId)
+    .in('statut', ['reclamation', 'remboursement']);
+  if (error) throw error;
+
+  const lotMap = new Map<string, { lotName: string; total: number }>();
+  const typeMap = new Map<BienType, { count: number; total: number }>();
+  let total = 0;
+
+  for (const row of data ?? []) {
+    const amount = Number(row.degrevement_estime ?? 0);
+    total += amount;
+    const lotName = (row.lots as unknown as { name: string }).name;
+    const lot = lotMap.get(row.lot_id) ?? { lotName, total: 0 };
+    lot.total += amount;
+    lotMap.set(row.lot_id, lot);
+    const type = natureToType(row.nature);
+    const t = typeMap.get(type) ?? { count: 0, total: 0 };
+    t.count += 1;
+    t.total += amount;
+    typeMap.set(type, t);
+  }
+
+  const round = (n: number) => Math.round(n * 100) / 100;
+  return {
+    total: round(total),
+    byLot: [...lotMap.entries()].map(([lotId, v]) => ({ lotId, lotName: v.lotName, total: round(v.total) })),
+    byType: [...typeMap.entries()].map(([type, v]) => ({ type, count: v.count, total: round(v.total) })),
+  };
 }
